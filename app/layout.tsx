@@ -17,6 +17,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ru">
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var saved=localStorage.getItem("soft-planner-recovered-v2");if(saved){var parsed=JSON.parse(saved);if(parsed&&parsed.theme){document.documentElement.dataset.theme=parsed.theme;}}}catch(e){}`
+          }}
+        />
+      </head>
       <body className={`${inter.variable} ${cormorant.variable}`}>{children}</body>
     </html>
   );

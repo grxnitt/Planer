@@ -147,19 +147,22 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
   const [modal, setModal] = useState<null | "task" | "deadline" | "event" | "med" | "finance" | "goal" | "habit">(null);
   const [now, setNow] = useState(new Date());
   const [image, setImage] = useState(images[0]);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) setData(JSON.parse(saved));
     setImage(images[Math.floor(Math.random() * images.length)]);
+    setHydrated(true);
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     localStorage.setItem(storageKey, JSON.stringify(data));
     document.documentElement.dataset.theme = data.theme;
-  }, [data]);
+  }, [data, hydrated]);
 
   const results = useMemo(() => plannerSearch(query, { ...data, plans: Object.values(data.plans) }), [data, query]);
 
@@ -363,11 +366,14 @@ function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatc
 
 function CalendarPage({ data }: { data: PlannerData }) {
   const month = new Date();
-  return <ListPage title="Календарь"><div className="calendar-grid">{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
+  const firstOffset = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
+  const monthLabel = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(month);
+  return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Задачи, события, дедлайны и планы в одном месячном обзоре</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
     const date = localIsoDate(month.getFullYear(), month.getMonth(), day);
     const summary = calendarDaySummary(date, { ...data, plans: Object.values(data.plans) });
-    return <div key={day} className="calendar-cell"><b>{day}</b><span>{summary.tasks} задач</span><span>{summary.events} событий</span><span>{summary.deadlines} дедлайнов</span>{summary.hasPlan && <em>есть план дня</em>}</div>;
-  })}</div></ListPage>;
+    const total = summary.tasks + summary.events + summary.deadlines + (summary.hasPlan ? 1 : 0);
+    return <div key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${total ? "has-items" : ""}`}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>тихо</small>}</div>;
+  })}</div></div></ListPage>;
 }
 
 function PlansPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
