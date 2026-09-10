@@ -62,3 +62,24 @@ export function prettyDate(date = new Date()) {
 export function monthDays(date = new Date()) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
 }
+
+export type PlannerSearchInput = {
+  tasks?: { title: string }[];
+  deadlines?: { title: string }[];
+  events?: { title: string }[];
+  plans?: { description: string }[];
+  transactions?: { note?: string }[];
+  goals?: { title: string }[];
+};
+
+export function plannerSearch(query: string, data: PlannerSearchInput) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  return [
+    ...(data.tasks || []).map((item) => ({ type: "Задача", text: item.title })),
+    ...(data.deadlines || []).map((item) => ({ type: "Дедлайн", text: item.title })),
+    ...(data.events || []).map((item) => ({ type: "Событие", text: item.title })),
+    ...(data.plans || []).map((item) => ({ type: "План", text: item.description }))
+  ].filter((item) => item.text.toLowerCase().includes(q));
+}

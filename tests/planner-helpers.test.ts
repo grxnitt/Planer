@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { greetingForHour, medicationPeriodProgress, statusForDeadline } from "../lib/planner-helpers";
+import { greetingForHour, medicationPeriodProgress, plannerSearch, statusForDeadline } from "../lib/planner-helpers";
 
 describe("planner helpers", () => {
   it("changes greeting by local device hour", () => {
@@ -28,5 +28,18 @@ describe("planner helpers", () => {
 
     expect(progress.label).toBe("1/2 таблеток сегодня");
     expect(progress.complete).toBe(false);
+  });
+
+  it("searches tasks, deadlines, events and plans but excludes finance and goals", () => {
+    const results = plannerSearch("кураторов", {
+      tasks: [{ title: "Пост для кураторов" }],
+      deadlines: [{ title: "Дедлайн кураторов" }],
+      events: [{ title: "Созвон с кураторов" }],
+      plans: [{ description: "День для кураторов" }],
+      transactions: [{ note: "трата для кураторов" }],
+      goals: [{ title: "Цель кураторов" }]
+    });
+
+    expect(results.map((result) => result.type)).toEqual(["Задача", "Дедлайн", "Событие", "План"]);
   });
 });

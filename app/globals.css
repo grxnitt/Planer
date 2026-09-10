@@ -388,6 +388,27 @@ button {
   gap: 28px;
 }
 
+.finance-mini p {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.08;
+}
+
+.finance-mini p b {
+  display: block;
+  white-space: nowrap;
+  font-size: clamp(22px, 2vw, 30px);
+}
+
+.finance-mini p span,
+.finance-mini p small {
+  display: block;
+  color: var(--muted);
+  font-size: 15px;
+}
+
 .ring {
   display: grid;
   width: 118px;
@@ -478,6 +499,36 @@ button {
   grid-column: 1 / -1;
 }
 
+.check-edit-row,
+.goal-task-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.check-edit-row .check-row {
+  width: auto;
+}
+
+.check-edit-row .check-row > span {
+  margin: 0;
+}
+
+.check-edit-row button,
+.goal-task-row button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.goal-task-row .check-row {
+  min-width: 0;
+}
+
 input,
 select,
 textarea {
@@ -564,7 +615,7 @@ textarea {
 }
 
 .med-row {
-  grid-template-columns: 90px 1fr auto auto auto auto;
+  grid-template-columns: 90px minmax(180px, 1fr) auto;
   border-color: var(--accent);
 }
 
@@ -585,6 +636,31 @@ textarea {
 .med-row.postponed {
   border-style: dashed;
   background: color-mix(in srgb, #f3c66d 14%, var(--surface));
+}
+
+.med-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.med-actions button {
+  min-height: 42px;
+  border-radius: 14px;
+  padding: 10px 14px;
+  background: var(--accent-soft);
+}
+
+.row-editor {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.inline-title-input {
+  width: 100%;
+  min-height: 42px;
 }
 
 .category-manager {
@@ -726,8 +802,30 @@ progress::-webkit-progress-value {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .med-row,
   .editable-row {
+    grid-template-columns: 1fr;
+  }
+
+  .med-row {
+    grid-template-columns: 82px 1fr;
+  }
+
+  .med-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
+  .finance-mini {
+    align-items: flex-start;
+  }
+
+  .finance-mini p b {
+    white-space: normal;
+  }
+
+  .check-edit-row,
+  .goal-task-row,
+  .row-editor {
     grid-template-columns: 1fr;
   }
 }
