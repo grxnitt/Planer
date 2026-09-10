@@ -386,12 +386,13 @@ button {
   display: flex;
   align-items: center;
   gap: 28px;
+  flex-wrap: wrap;
 }
 
 .finance-mini p {
   display: grid;
   gap: 4px;
-  min-width: 0;
+  min-width: 170px;
   margin: 0;
   line-height: 1.08;
 }
@@ -453,6 +454,32 @@ button {
   gap: 18px;
   margin: 12px 0;
   padding: 18px 22px;
+}
+
+.full-edit-row {
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+}
+
+.full-edit-row > div {
+  min-width: 0;
+}
+
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.edit-grid label,
+.inline-form {
+  display: grid;
+  gap: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.edit-grid .wide {
+  grid-column: 1 / -1;
 }
 
 .editable-row button,
@@ -566,8 +593,32 @@ textarea {
 
 .calendar-cell span {
   display: block;
-  margin-top: 12px;
+  margin-top: 6px;
   color: var(--muted);
+}
+
+.calendar-cell em {
+  display: inline-block;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: var(--accent);
+  background: var(--surface);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.overview-list {
+  display: grid;
+  gap: 10px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.overview-list b {
+  color: var(--text);
+  font-size: 18px;
 }
 
 .tracker {
@@ -669,9 +720,47 @@ textarea {
   margin-bottom: 22px;
 }
 
+.inline-form {
+  margin-bottom: 22px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface-soft);
+}
+
+.inline-form h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.inline-form .primary {
+  justify-self: start;
+}
+
 .goal-card {
   margin-bottom: 18px;
   padding: 24px;
+  border-color: color-mix(in srgb, var(--goal, var(--accent)) 45%, var(--border));
+}
+
+.goal-head,
+.goal-linker {
+  display: grid;
+  grid-template-columns: 1fr 64px auto;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.goal-head button {
+  border: 0;
+  border-radius: 16px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.goal-linker {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-top: 16px;
 }
 
 progress {

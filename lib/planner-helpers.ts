@@ -5,6 +5,7 @@ export type DeadlineStatus = {
 
 export type MedicationPeriod = "morning" | "evening";
 export type MedicationLogStatus = "taken" | "missed" | "postponed";
+export type RecurrenceLike = "none" | "daily" | "weekly" | "monthly";
 
 export function greetingForHour(hour: number): string {
   if (hour >= 5 && hour < 12) return "Доброе утро";
@@ -47,6 +48,58 @@ export function medicationPeriodProgress(
   };
 }
 
+export function localIsoDate(year: number, monthIndex: number, day: number) {
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function occursOn(itemDate: string, recurrence: RecurrenceLike | undefined, targetDate: string) {
+  if (itemDate === targetDate) return true;
+  if (!recurrence || recurrence === "none") return false;
+
+  const start = new Date(`${itemDate}T12:00:00`);
+  const target = new Date(`${targetDate}T12:00:00`);
+  if (target < start) return false;
+
+  if (recurrence === "daily") return true;
+  if (recurrence === "weekly") return start.getDay() === target.getDay();
+  return start.getDate() === target.getDate();
+}
+
+export function periodHeartLogs(
+  medications: { id: string; period: MedicationPeriod; logs: Record<string, MedicationLogStatus | undefined> }[],
+  period: MedicationPeriod,
+  year: number,
+  monthIndex: number
+) {
+  const result: Record<string, boolean> = {};
+  const periodMeds = medications.filter((med) => med.period === period);
+  const days = new Date(year, monthIndex + 1, 0).getDate();
+
+  for (let day = 1; day <= days; day += 1) {
+    const key = localIsoDate(year, monthIndex, day);
+    result[String(day)] = periodMeds.length > 0 && periodMeds.every((med) => med.logs[key] === "taken");
+  }
+
+  return result;
+}
+
+export function calendarDaySummary(
+  date: string,
+  data: {
+    tasks?: { date: string; recurrence?: RecurrenceLike }[];
+    events?: { date: string; recurrence?: RecurrenceLike }[];
+    deadlines?: { date: string; recurrence?: RecurrenceLike }[];
+    plans?: { date: string; description?: string }[];
+  }
+) {
+  return {
+    tasks: (data.tasks || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
+    events: (data.events || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
+    deadlines: (data.deadlines || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
+    hasPlan: (data.plans || []).some((item) => item.date === date && Boolean(item.description?.trim()))
+  };
+}
+
 export function isoToday(date = new Date()) {
   return date.toISOString().slice(0, 10);
 }
@@ -67,7 +120,7 @@ export type PlannerSearchInput = {
   tasks?: { title: string }[];
   deadlines?: { title: string }[];
   events?: { title: string }[];
-  plans?: { description: string }[];
+  plans?: { description: string; top?: string[]; checklist?: { text: string }[] }[];
   transactions?: { note?: string }[];
   goals?: { title: string }[];
 };
@@ -80,6 +133,6 @@ export function plannerSearch(query: string, data: PlannerSearchInput) {
     ...(data.tasks || []).map((item) => ({ type: "Задача", text: item.title })),
     ...(data.deadlines || []).map((item) => ({ type: "Дедлайн", text: item.title })),
     ...(data.events || []).map((item) => ({ type: "Событие", text: item.title })),
-    ...(data.plans || []).map((item) => ({ type: "План", text: item.description }))
+    ...(data.plans || []).map((item) => ({ type: "План", text: [item.description, ...(item.top || []), ...(item.checklist || []).map((check) => check.text)].join(" ") }))
   ].filter((item) => item.text.toLowerCase().includes(q));
 }

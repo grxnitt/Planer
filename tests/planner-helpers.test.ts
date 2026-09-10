@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { greetingForHour, medicationPeriodProgress, plannerSearch, statusForDeadline } from "../lib/planner-helpers";
+import {
+  calendarDaySummary,
+  greetingForHour,
+  medicationPeriodProgress,
+  periodHeartLogs,
+  plannerSearch,
+  statusForDeadline
+} from "../lib/planner-helpers";
 
 describe("planner helpers", () => {
   it("changes greeting by local device hour", () => {
@@ -28,6 +35,33 @@ describe("planner helpers", () => {
 
     expect(progress.label).toBe("1/2 таблеток сегодня");
     expect(progress.complete).toBe(false);
+  });
+
+  it("builds monthly medication hearts from all medicines in one period", () => {
+    const logs = periodHeartLogs(
+      [
+        { id: "a", period: "morning", logs: { "2026-09-10": "taken" } },
+        { id: "b", period: "morning", logs: { "2026-09-10": "taken", "2026-09-11": "postponed" } },
+        { id: "c", period: "evening", logs: { "2026-09-10": "taken" } }
+      ],
+      "morning",
+      2026,
+      8
+    );
+
+    expect(logs["10"]).toBe(true);
+    expect(logs["11"]).toBe(false);
+  });
+
+  it("summarizes recurring tasks, events and deadlines for calendar cells", () => {
+    const summary = calendarDaySummary("2026-09-14", {
+      tasks: [{ date: "2026-09-07", recurrence: "weekly" }, { date: "2026-09-14", recurrence: "none" }],
+      events: [{ date: "2026-09-14", recurrence: "none" }],
+      deadlines: [{ date: "2026-09-10", recurrence: "daily" }],
+      plans: [{ date: "2026-09-14", description: "Учебный день" }]
+    });
+
+    expect(summary).toEqual({ tasks: 2, events: 1, deadlines: 1, hasPlan: true });
   });
 
   it("searches tasks, deadlines, events and plans but excludes finance and goals", () => {
