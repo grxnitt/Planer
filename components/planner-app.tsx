@@ -20,6 +20,7 @@ import {
   Target,
   Trash2
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   calendarDaySummary,
@@ -170,18 +171,20 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
     setData((current) => ({ ...current, ...update }));
   }
 
+  if (!hydrated) return <LoadingShell />;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <a className="brand" href="/today">myday</a>
+        <Link className="brand" href="/today">myday</Link>
         <nav>
           {nav.map((item) => {
             const Icon = item.icon;
             return (
-              <a key={item.id} className={section === item.id ? "active" : ""} href={`/${item.id}`}>
+              <Link key={item.id} className={section === item.id ? "active" : ""} href={`/${item.id}`}>
                 <Icon size={18} />
                 {item.label}
-              </a>
+              </Link>
             );
           })}
         </nav>
@@ -217,6 +220,10 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
       {modal && <QuickModal kind={modal} data={data} setData={setData} close={() => setModal(null)} />}
     </div>
   );
+}
+
+function LoadingShell() {
+  return <div className="loading-shell"><div><span>myday</span><p>Загружаю твой планер…</p></div></div>;
 }
 
 function defaultModal(section: Section) {
