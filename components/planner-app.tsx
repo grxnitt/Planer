@@ -36,7 +36,8 @@ import {
   prettyDate,
   statusForDeadline,
   type MedicationLogStatus,
-  type MedicationPeriod
+  type MedicationPeriod,
+  type WeekdaySchedule
 } from "@/lib/planner-helpers";
 
 type Section =
@@ -52,11 +53,11 @@ type Section =
   | "goals"
   | "settings";
 type Recurrence = "none" | "daily" | "weekly" | "monthly";
-type Task = { id: string; title: string; date: string; time?: string; completed: boolean; category: string; goalId?: string; recurrence: Recurrence };
-type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence };
-type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence };
+type Task = { id: string; title: string; date: string; time?: string; completed: boolean; category: string; goalId?: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
+type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
+type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
-type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; logs: Record<string, MedicationLogStatus> };
+type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
 type Transaction = { id: string; amount: number; type: "income" | "expense"; category: string; date: string; note?: string };
 type PlanDay = { date: string; description: string; top: string[]; checklist: { id: string; text: string; done: boolean }[] };
 type Goal = { id: string; title: string; color: string; taskIds: string[] };
@@ -83,6 +84,14 @@ const images = [
   "/quote-moods/quote-levi-night.jpeg",
   "/quote-moods/quote-levi-sunset.jpeg",
   "/quote-moods/quote-lucky-you.jpeg"
+];
+const sidebarPhrases = [
+  "Новый день — новое свершение",
+  "Тише темп — точнее шаг",
+  "Сегодня достаточно одного важного шага",
+  "Маленький порядок рождает большое спокойствие",
+  "Ты справишься мягко, но уверенно",
+  "Пусть день будет ясным и твоим"
 ];
 const nav: { id: Section; label: string; icon: typeof CalendarDays }[] = [
   { id: "today", label: "Сегодня", icon: Sunrise },
@@ -148,12 +157,14 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
   const [modal, setModal] = useState<null | "task" | "deadline" | "event" | "med" | "finance" | "goal" | "habit">(null);
   const [now, setNow] = useState(new Date());
   const [image, setImage] = useState(images[0]);
+  const [phrase, setPhrase] = useState(sidebarPhrases[0]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
     if (saved) setData(JSON.parse(saved));
     setImage(images[Math.floor(Math.random() * images.length)]);
+    setPhrase(sidebarPhrases[Math.floor(Math.random() * sidebarPhrases.length)]);
     setHydrated(true);
     const timer = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(timer);
@@ -188,7 +199,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
             );
           })}
         </nav>
-        <div className="profile">Доброе время дня,<br />Елизавета Сергеевна ✨</div>
+        <div className="profile">{phrase}</div>
       </aside>
       <main className="main">
         <header className="topbar">
@@ -248,8 +259,8 @@ function TodayPage({ data, now, image, setData }: {
   image: string;
   setData: React.Dispatch<React.SetStateAction<PlannerData>>;
 }) {
-  const todaysTasks = data.tasks.filter((task) => occursOn(task.date, task.recurrence, today));
-  const todaysEvents = data.events.filter((event) => occursOn(event.date, event.recurrence, today));
+  const todaysTasks = data.tasks.filter((task) => occursOn(task.date, task.recurrence, today, task.repeatDays));
+  const todaysEvents = data.events.filter((event) => occursOn(event.date, event.recurrence, today, event.repeatDays));
   const spent = data.transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
   const budget = 40000;
   const todayDay = String(now.getDate());
@@ -324,6 +335,33 @@ function CheckRow({ checked, text, onClick }: { checked: boolean; text: string; 
 }
 
 const taskCategories = ["Учёба", "Работа", "Личное", "Дом", "Здоровье", "Другое"];
+const weekDays = [
+  { value: 1, label: "Пн" },
+  { value: 2, label: "Вт" },
+  { value: 3, label: "Ср" },
+  { value: 4, label: "Чт" },
+  { value: 5, label: "Пт" },
+  { value: 6, label: "Сб" },
+  { value: 0, label: "Вс" }
+];
+
+function toggleDay(days: WeekdaySchedule | undefined, day: number) {
+  const current = days || [];
+  return current.includes(day) ? current.filter((item) => item !== day) : [...current, day].sort((a, b) => weekDays.findIndex((x) => x.value === a) - weekDays.findIndex((x) => x.value === b));
+}
+
+function RecurrenceFields<T extends { recurrence: Recurrence; repeatDays?: WeekdaySchedule }>({ draft, setDraft }: { draft: T; setDraft: React.Dispatch<React.SetStateAction<T>> }) {
+  return <>
+    <label>Повтор<select value={draft.recurrence} onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}>{recurrenceOptions()}</select></label>
+    {draft.recurrence === "weekly" && (
+      <label className="wide">Дни недели
+        <div className="weekday-picker">
+          {weekDays.map((day) => <button type="button" key={day.value} className={draft.repeatDays?.includes(day.value) ? "active" : ""} onClick={() => setDraft({ ...draft, repeatDays: toggleDay(draft.repeatDays, day.value) })}>{day.label}</button>)}
+        </div>
+      </label>
+    )}
+  </>;
+}
 
 function TasksPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
   return <ListPage title="Задачи">{data.tasks.map((task) => <TaskRow key={task.id} task={task} data={data} setData={setData} />)}</ListPage>;
@@ -337,7 +375,7 @@ function TaskRow({ task, data, setData }: { task: Task; data: PlannerData; setDa
     setEditing(false);
   };
 
-  return <div className="editable-row full-edit-row"><button className="mini-check" onClick={() => setData((d) => ({ ...d, tasks: d.tasks.map((x) => x.id === task.id ? { ...x, completed: !x.completed } : x) }))}>{task.completed && <Check size={14} />}</button><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time || ""} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{taskCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Цель<select value={draft.goalId || ""} onChange={(e) => setDraft({ ...draft, goalId: e.target.value || undefined })}><option value="">Без цели</option>{data.goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label><label>Повтор<select value={draft.recurrence} onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}>{recurrenceOptions()}</select></label></EditGrid> : <><h3>{task.title}</h3><p>{dateRu(task.date)} {task.time || "без времени"} · {task.category} · {recurrenceRu(task.recurrence)}{task.goalId ? ` · цель: ${data.goals.find((goal) => goal.id === task.goalId)?.title || "без названия"}` : ""}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(task); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, tasks: d.tasks.filter((x) => x.id !== task.id), goals: d.goals.map((goal) => ({ ...goal, taskIds: goal.taskIds.filter((id) => id !== task.id) })) }))}><Trash2 /></button></div>;
+  return <div className="editable-row full-edit-row"><button className="mini-check" onClick={() => setData((d) => ({ ...d, tasks: d.tasks.map((x) => x.id === task.id ? { ...x, completed: !x.completed } : x) }))}>{task.completed && <Check size={14} />}</button><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time || ""} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{taskCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Цель<select value={draft.goalId || ""} onChange={(e) => setDraft({ ...draft, goalId: e.target.value || undefined })}><option value="">Без цели</option>{data.goals.map((goal) => <option key={goal.id} value={goal.id}>{goal.title}</option>)}</select></label><RecurrenceFields draft={draft} setDraft={setDraft} /></EditGrid> : <><h3>{task.title}</h3><p>{dateRu(task.date)} {task.time || "без времени"} · {task.category} · {recurrenceRu(task.recurrence, task.repeatDays)}{task.goalId ? ` · цель: ${data.goals.find((goal) => goal.id === task.goalId)?.title || "без названия"}` : ""}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(task); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, tasks: d.tasks.filter((x) => x.id !== task.id), goals: d.goals.map((goal) => ({ ...goal, taskIds: goal.taskIds.filter((id) => id !== task.id) })) }))}><Trash2 /></button></div>;
 }
 
 function DeadlinesPage({ data, now, setData }: { data: PlannerData; now: Date; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -353,7 +391,7 @@ function DeadlineRow({ deadline, now, setData }: { deadline: Deadline; now: Date
     setEditing(false);
   };
 
-  return <div className="editable-row full-edit-row deadline-item"><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time || ""} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{taskCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Повтор<select value={draft.recurrence} onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}>{recurrenceOptions()}</select></label></EditGrid> : <><h3>{deadline.title}</h3><p>{dateRu(deadline.date)} · {deadline.time || "Без времени"} · {deadline.category} · {recurrenceRu(deadline.recurrence)} <span className={`status-chip ${status.kind}`}>{status.label}</span></p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(deadline); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, deadlines: d.deadlines.filter((x) => x.id !== deadline.id) }))}><Trash2 /></button></div>;
+  return <div className="editable-row full-edit-row deadline-item"><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time || ""} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{taskCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><RecurrenceFields draft={draft} setDraft={setDraft} /></EditGrid> : <><h3>{deadline.title}</h3><p>{dateRu(deadline.date)} · {deadline.time || "Без времени"} · {deadline.category} · {recurrenceRu(deadline.recurrence, deadline.repeatDays)} <span className={`status-chip ${status.kind}`}>{status.label}</span></p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(deadline); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, deadlines: d.deadlines.filter((x) => x.id !== deadline.id) }))}><Trash2 /></button></div>;
 }
 
 function EventsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -368,19 +406,30 @@ function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatc
     setEditing(false);
   };
 
-  return <div className="editable-row full-edit-row"><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Повтор<select value={draft.recurrence} onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}>{recurrenceOptions()}</select></label></EditGrid> : <><h3>{event.title}</h3><p>{dateRu(event.date)} · {event.time} · {recurrenceRu(event.recurrence)}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(event); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, events: d.events.filter((x) => x.id !== event.id) }))}><Trash2 /></button></div>;
+  return <div className="editable-row full-edit-row"><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><RecurrenceFields draft={draft} setDraft={setDraft} /></EditGrid> : <><h3>{event.title}</h3><p>{dateRu(event.date)} · {event.time} · {recurrenceRu(event.recurrence, event.repeatDays)}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(event); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, events: d.events.filter((x) => x.id !== event.id) }))}><Trash2 /></button></div>;
 }
 
 function CalendarPage({ data }: { data: PlannerData }) {
+  const [selectedDate, setSelectedDate] = useState(today);
   const month = new Date();
   const firstOffset = (new Date(month.getFullYear(), month.getMonth(), 1).getDay() + 6) % 7;
   const monthLabel = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(month);
-  return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Задачи, события, дедлайны и планы в одном месячном обзоре</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
+  const details = calendarItemsForDate(data, selectedDate);
+  const plan = data.plans[selectedDate];
+  return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Нажми на день, чтобы увидеть задачи, события, дедлайны и план</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
     const date = localIsoDate(month.getFullYear(), month.getMonth(), day);
     const summary = calendarDaySummary(date, { ...data, plans: Object.values(data.plans) });
     const total = summary.tasks + summary.events + summary.deadlines + (summary.hasPlan ? 1 : 0);
-    return <div key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${total ? "has-items" : ""}`}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>нет планов</small>}</div>;
-  })}</div></div></ListPage>;
+    return <button type="button" key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${selectedDate === date ? "selected-cell" : ""} ${total ? "has-items" : ""}`} onClick={() => setSelectedDate(date)}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>нет планов</small>}</button>;
+  })}</div><section className="calendar-detail"><h3>{dateRu(selectedDate)}</h3>{plan?.description?.trim() && <p className="plan-note">{plan.description}</p>}{details.length ? details.map((item) => <div className={`day-detail-row ${item.kind}`} key={item.kind + item.id}><span>{item.label}</span><b>{item.time || "без времени"}</b><p>{item.title}</p></div>) : <Empty text="На этот день нет планов" />}</section></div></ListPage>;
+}
+
+function calendarItemsForDate(data: PlannerData, date: string) {
+  return [
+    ...data.tasks.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "task", label: "Задача", time: item.time, title: item.title })),
+    ...data.events.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "event", label: "Событие", time: item.time, title: item.title })),
+    ...data.deadlines.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "deadline", label: "Дедлайн", time: item.time, title: item.title }))
+  ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 }
 
 function PlansPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -414,26 +463,26 @@ function FinancePage({ data, setData }: { data: PlannerData; setData: React.Disp
 }
 
 function FinanceEntryForm({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
-  const [draft, setDraft] = useState<Omit<Transaction, "id">>({ amount: 0, type: "expense", category: data.financeCategories[1] || "Расходы", date: today, note: "" });
+  const [draft, setDraft] = useState<Omit<Transaction, "id">>({ amount: 0, type: "expense", category: defaultFinanceCategory(data.financeCategories, "expense"), date: today, note: "" });
   const save = () => {
     const amount = Math.abs(Number(draft.amount));
     if (!amount) return;
-    setData((d) => ({ ...d, transactions: [{ ...draft, id: uid("f"), amount }, ...d.transactions] }));
-    setDraft({ amount: 0, type: "expense", category: data.financeCategories[1] || "Расходы", date: today, note: "" });
+    setData((d) => ({ ...d, transactions: [{ ...draft, id: uid("f"), amount, category: normalizeFinanceCategory(draft.type, draft.category) }, ...d.transactions] }));
+    setDraft({ amount: 0, type: "expense", category: defaultFinanceCategory(data.financeCategories, "expense"), date: today, note: "" });
   };
 
-  return <section className="inline-form"><h3>Новая операция</h3><EditGrid><label>Тип<select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as Transaction["type"] })}><option value="expense">Расход</option><option value="income">Доход</option></select></label><label>Сумма<input type="number" value={draft.amount || ""} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{data.financeCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Дата<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label className="wide">Комментарий<input value={draft.note || ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label></EditGrid><button className="primary" onClick={save}><Plus />Добавить операцию</button></section>;
+  return <section className="inline-form"><h3>Новая операция</h3><EditGrid><label>Тип<select value={draft.type} onChange={(e) => { const type = e.target.value as Transaction["type"]; setDraft({ ...draft, type, category: defaultFinanceCategory(data.financeCategories, type) }); }}><option value="expense">Расход</option><option value="income">Доход</option></select></label><label>Сумма<input type="number" value={draft.amount || ""} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{data.financeCategories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Дата<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label className="wide">Комментарий<input value={draft.note || ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label></EditGrid><button className="primary" onClick={save}><Plus />Добавить операцию</button></section>;
 }
 
 function FinanceRow({ item, categories, setData }: { item: Transaction; categories: string[]; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item);
   const save = () => {
-    setData((d) => ({ ...d, transactions: d.transactions.map((x) => x.id === item.id ? { ...draft, amount: Math.abs(Number(draft.amount)) || x.amount } : x) }));
+    setData((d) => ({ ...d, transactions: d.transactions.map((x) => x.id === item.id ? { ...draft, amount: Math.abs(Number(draft.amount)) || x.amount, category: normalizeFinanceCategory(draft.type, draft.category) } : x) }));
     setEditing(false);
   };
 
-  return <div className="editable-row full-edit-row"><div>{editing ? <EditGrid><label>Тип<select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as Transaction["type"] })}><option value="expense">Расход</option><option value="income">Доход</option></select></label><label>Сумма<input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{categories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Дата<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label className="wide">Комментарий<input value={draft.note || ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label></EditGrid> : <><h3>{item.type === "income" ? "+" : "-"}{money(item.amount)}</h3><p>{item.category} · {dateRu(item.date)} {item.note || ""}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(item); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, transactions: d.transactions.filter((x) => x.id !== item.id) }))}><Trash2 /></button></div>;
+  return <div className="editable-row full-edit-row"><div>{editing ? <EditGrid><label>Тип<select value={draft.type} onChange={(e) => { const type = e.target.value as Transaction["type"]; setDraft({ ...draft, type, category: defaultFinanceCategory(categories, type) }); }}><option value="expense">Расход</option><option value="income">Доход</option></select></label><label>Сумма<input type="number" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })} /></label><label>Категория<select value={draft.category} onChange={(e) => setDraft({ ...draft, category: e.target.value })}>{categories.map((cat) => <option key={cat}>{cat}</option>)}</select></label><label>Дата<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label className="wide">Комментарий<input value={draft.note || ""} onChange={(e) => setDraft({ ...draft, note: e.target.value })} /></label></EditGrid> : <><h3>{item.type === "income" ? "+" : "-"}{money(item.amount)}</h3><p>{financeCategoryLabel(item)} · {dateRu(item.date)} {item.note || ""}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft({ ...item, category: financeCategoryLabel(item) }); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, transactions: d.transactions.filter((x) => x.id !== item.id) }))}><Trash2 /></button></div>;
 }
 
 function GoalsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -460,9 +509,10 @@ function QuickModal({ kind, data, setData, close }: { kind: NonNullable<ReturnTy
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(today);
   const [time, setTime] = useState("12:00");
-  const [category, setCategory] = useState("Другое");
+  const [category, setCategory] = useState(kind === "finance" ? defaultFinanceCategory(data.financeCategories, "expense") : "Другое");
   const [dose, setDose] = useState("1 таблетка · после еды");
   const [recurrence, setRecurrence] = useState<Recurrence>("none");
+  const [repeatDays, setRepeatDays] = useState<WeekdaySchedule>([]);
   const [amount, setAmount] = useState("0");
   const [financeType, setFinanceType] = useState<Transaction["type"]>("expense");
   const [note, setNote] = useState("");
@@ -470,19 +520,20 @@ function QuickModal({ kind, data, setData, close }: { kind: NonNullable<ReturnTy
 
   function save() {
     const name = title.trim() || "Новое";
+    const weeklyDays = recurrence === "weekly" ? repeatDays : undefined;
     setData((d) => {
-      if (kind === "task") return { ...d, tasks: [...d.tasks, { id: uid("t"), title: name, date, time, completed: false, category, recurrence }] };
-      if (kind === "deadline") return { ...d, deadlines: [...d.deadlines, { id: uid("d"), title: name, date, time, category, recurrence }] };
-      if (kind === "event") return { ...d, events: [...d.events, { id: uid("e"), title: name, date, time, recurrence }] };
-      if (kind === "med") return { ...d, medications: [...d.medications, { id: uid("m"), title: name, dose, time, period, recurrence, logs: {} }] };
-      if (kind === "finance") return { ...d, transactions: [...d.transactions, { id: uid("f"), amount: Math.abs(Number(amount)), type: financeType, category, date, note }] };
+      if (kind === "task") return { ...d, tasks: [...d.tasks, { id: uid("t"), title: name, date, time, completed: false, category, recurrence, repeatDays: weeklyDays }] };
+      if (kind === "deadline") return { ...d, deadlines: [...d.deadlines, { id: uid("d"), title: name, date, time, category, recurrence, repeatDays: weeklyDays }] };
+      if (kind === "event") return { ...d, events: [...d.events, { id: uid("e"), title: name, date, time, recurrence, repeatDays: weeklyDays }] };
+      if (kind === "med") return { ...d, medications: [...d.medications, { id: uid("m"), title: name, dose, time, period, recurrence, repeatDays: weeklyDays, logs: {} }] };
+      if (kind === "finance") return { ...d, transactions: [...d.transactions, { id: uid("f"), amount: Math.abs(Number(amount)), type: financeType, category: normalizeFinanceCategory(financeType, category), date, note }] };
       if (kind === "goal") return { ...d, goals: [...d.goals, { id: uid("g"), title: name, color: "#e8749b", taskIds: [] }] };
       return { ...d, habits: [...d.habits, { id: uid("h"), title: name, color: "#e8749b", logs: {} }] };
     });
     close();
   }
 
-  return <div className="modal-backdrop"><div className="modal"><h2>Добавить</h2>{kind !== "finance" && <input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />}{kind === "finance" && <><select value={financeType} onChange={(e) => setFinanceType(e.target.value as Transaction["type"])}><option value="expense">Расход</option><option value="income">Доход</option></select><input aria-label="Сумма операции" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /><input placeholder="Комментарий" value={note} onChange={(e) => setNote(e.target.value)} /></>}{kind !== "goal" && kind !== "habit" && <><input type="date" value={date} onChange={(e) => setDate(e.target.value)} />{kind !== "finance" && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />}</>}{kind === "med" && <><input placeholder="Дозировка и заметка" value={dose} onChange={(e) => setDose(e.target.value)} /><select value={period} onChange={(e) => setPeriod(e.target.value as MedicationPeriod)}><option value="morning">Утро</option><option value="evening">Вечер</option></select></>}{kind !== "goal" && kind !== "habit" && kind !== "med" && <select value={category} onChange={(e) => setCategory(e.target.value)}>{data.financeCategories.map((cat) => <option key={cat}>{cat}</option>)}</select>}{kind !== "goal" && kind !== "habit" && kind !== "finance" && <select value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recurrence)}>{recurrenceOptions()}</select>}<div className="modal-actions"><button onClick={close}>Отмена</button><button className="primary" onClick={save}>Сохранить</button></div></div></div>;
+  return <div className="modal-backdrop"><div className="modal"><h2>Добавить</h2>{kind !== "finance" && <input placeholder="Название" value={title} onChange={(e) => setTitle(e.target.value)} />}{kind === "finance" && <><select value={financeType} onChange={(e) => { const type = e.target.value as Transaction["type"]; setFinanceType(type); setCategory(defaultFinanceCategory(data.financeCategories, type)); }}><option value="expense">Расход</option><option value="income">Доход</option></select><input aria-label="Сумма операции" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} /><input placeholder="Комментарий" value={note} onChange={(e) => setNote(e.target.value)} /></>}{kind !== "goal" && kind !== "habit" && <><input type="date" value={date} onChange={(e) => setDate(e.target.value)} />{kind !== "finance" && <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />}</>}{kind === "med" && <><input placeholder="Дозировка и заметка" value={dose} onChange={(e) => setDose(e.target.value)} /><select value={period} onChange={(e) => setPeriod(e.target.value as MedicationPeriod)}><option value="morning">Утро</option><option value="evening">Вечер</option></select></>}{(kind === "task" || kind === "deadline" || kind === "finance") && <select value={category} onChange={(e) => setCategory(e.target.value)}>{(kind === "finance" ? data.financeCategories : taskCategories).map((cat) => <option key={cat}>{cat}</option>)}</select>}{kind !== "goal" && kind !== "habit" && kind !== "finance" && <><select value={recurrence} onChange={(e) => setRecurrence(e.target.value as Recurrence)}>{recurrenceOptions()}</select>{recurrence === "weekly" && <div className="weekday-picker">{weekDays.map((day) => <button type="button" key={day.value} className={repeatDays.includes(day.value) ? "active" : ""} onClick={() => setRepeatDays(toggleDay(repeatDays, day.value))}>{day.label}</button>)}</div>}</>}<div className="modal-actions"><button onClick={close}>Отмена</button><button className="primary" onClick={save}>Сохранить</button></div></div></div>;
 }
 
 function MedicationRow({ med, setData }: { med: Medication; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -494,7 +545,7 @@ function MedicationRow({ med, setData }: { med: Medication; setData: React.Dispa
     setEditing(false);
   }
 
-  return <div className={`med-row ${med.logs[today] || ""}`}><b>{med.time}</b><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>Доза<input value={draft.dose} onChange={(e) => setDraft({ ...draft, dose: e.target.value })} /></label><label>Время<input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Период<select value={draft.period} onChange={(e) => setDraft({ ...draft, period: e.target.value as MedicationPeriod })}><option value="morning">Утро</option><option value="evening">Вечер</option></select></label><label>Повтор<select value={draft.recurrence} onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}>{recurrenceOptions()}</select></label></EditGrid> : <><h3>{med.title}</h3><p>{med.dose} · {med.period === "morning" ? "утро" : "вечер"} · {recurrenceRu(med.recurrence)}</p>{med.logs[today] === "postponed" && <small>Отложено: не забыто</small>}</>}</div><div className="med-actions">{editing ? <button onClick={save}>Сохранить</button> : <button aria-label="Редактировать таблетку" onClick={() => { setDraft(med); setEditing(true); }}><Edit3 /></button>}<button onClick={() => logMed(setData, med.id, "taken")}>Приняла</button><button onClick={() => logMed(setData, med.id, "missed")}>Пропуск</button><button onClick={() => logMed(setData, med.id, "postponed")}>Отложено</button><button aria-label="Удалить таблетку" onClick={() => setData((d) => ({ ...d, medications: d.medications.filter((x) => x.id !== med.id) }))}><Trash2 /></button></div></div>;
+  return <div className={`med-row ${med.logs[today] || ""}`}><b>{med.time}</b><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>Доза<input value={draft.dose} onChange={(e) => setDraft({ ...draft, dose: e.target.value })} /></label><label>Время<input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><label>Период<select value={draft.period} onChange={(e) => setDraft({ ...draft, period: e.target.value as MedicationPeriod })}><option value="morning">Утро</option><option value="evening">Вечер</option></select></label><RecurrenceFields draft={draft} setDraft={setDraft} /></EditGrid> : <><h3>{med.title}</h3><p>{med.dose} · {med.period === "morning" ? "утро" : "вечер"} · {recurrenceRu(med.recurrence, med.repeatDays)}</p>{med.logs[today] === "postponed" && <small>Отложено: не забыто</small>}</>}</div><div className="med-actions">{editing ? <button onClick={save}>Сохранить</button> : <button aria-label="Редактировать таблетку" onClick={() => { setDraft(med); setEditing(true); }}><Edit3 /></button>}<button onClick={() => logMed(setData, med.id, "taken")}>Приняла</button><button onClick={() => logMed(setData, med.id, "missed")}>Пропуск</button><button onClick={() => logMed(setData, med.id, "postponed")}>Отложено</button><button aria-label="Удалить таблетку" onClick={() => setData((d) => ({ ...d, medications: d.medications.filter((x) => x.id !== med.id) }))}><Trash2 /></button></div></div>;
 }
 
 function EditableRow({ title, meta, checked, tone, onCheck, onRename, onDelete }: { title: string; meta: string; checked?: boolean; tone?: string; onCheck?: () => void; onRename?: (title: string) => void; onDelete?: () => void }) {
@@ -542,7 +593,26 @@ function money(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value) + " ₽";
 }
 
-function recurrenceRu(value: Recurrence) {
+function defaultFinanceCategory(categories: string[], type: Transaction["type"]) {
+  const preferred = type === "income" ? "Доходы" : "Расходы";
+  return categories.includes(preferred) ? preferred : categories[0] || preferred;
+}
+
+function normalizeFinanceCategory(type: Transaction["type"], category: string) {
+  if (type === "income" && category === "Расходы") return "Доходы";
+  if (type === "expense" && category === "Доходы") return "Расходы";
+  return category;
+}
+
+function financeCategoryLabel(item: Transaction) {
+  return normalizeFinanceCategory(item.type, item.category);
+}
+
+function recurrenceRu(value: Recurrence, repeatDays?: WeekdaySchedule) {
+  if (value === "weekly" && repeatDays?.length) {
+    const labels = weekDays.filter((day) => repeatDays.includes(day.value)).map((day) => day.label.toLowerCase()).join(", ");
+    return `каждую неделю: ${labels}`;
+  }
   return { none: "без повтора", daily: "каждый день", weekly: "каждую неделю", monthly: "каждый месяц" }[value];
 }
 

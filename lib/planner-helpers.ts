@@ -6,6 +6,7 @@ export type DeadlineStatus = {
 export type MedicationPeriod = "morning" | "evening";
 export type MedicationLogStatus = "taken" | "missed" | "postponed";
 export type RecurrenceLike = "none" | "daily" | "weekly" | "monthly";
+export type WeekdaySchedule = number[];
 
 export function greetingForHour(hour: number): string {
   if (hour >= 5 && hour < 12) return "Доброе утро";
@@ -52,7 +53,7 @@ export function localIsoDate(year: number, monthIndex: number, day: number) {
   return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
-export function occursOn(itemDate: string, recurrence: RecurrenceLike | undefined, targetDate: string) {
+export function occursOn(itemDate: string, recurrence: RecurrenceLike | undefined, targetDate: string, repeatDays?: WeekdaySchedule) {
   if (itemDate === targetDate) return true;
   if (!recurrence || recurrence === "none") return false;
 
@@ -61,7 +62,7 @@ export function occursOn(itemDate: string, recurrence: RecurrenceLike | undefine
   if (target < start) return false;
 
   if (recurrence === "daily") return true;
-  if (recurrence === "weekly") return start.getDay() === target.getDay();
+  if (recurrence === "weekly") return repeatDays?.length ? repeatDays.includes(target.getDay()) : start.getDay() === target.getDay();
   return start.getDate() === target.getDate();
 }
 
@@ -86,16 +87,16 @@ export function periodHeartLogs(
 export function calendarDaySummary(
   date: string,
   data: {
-    tasks?: { date: string; recurrence?: RecurrenceLike }[];
-    events?: { date: string; recurrence?: RecurrenceLike }[];
-    deadlines?: { date: string; recurrence?: RecurrenceLike }[];
+    tasks?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
+    events?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
+    deadlines?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
     plans?: { date: string; description?: string }[];
   }
 ) {
   return {
-    tasks: (data.tasks || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
-    events: (data.events || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
-    deadlines: (data.deadlines || []).filter((item) => occursOn(item.date, item.recurrence, date)).length,
+    tasks: (data.tasks || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
+    events: (data.events || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
+    deadlines: (data.deadlines || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
     hasPlan: (data.plans || []).some((item) => item.date === date && Boolean(item.description?.trim()))
   };
 }

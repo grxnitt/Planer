@@ -3,6 +3,7 @@ import {
   calendarDaySummary,
   greetingForHour,
   medicationPeriodProgress,
+  occursOn,
   periodHeartLogs,
   plannerSearch,
   statusForDeadline
@@ -62,6 +63,12 @@ describe("planner helpers", () => {
     });
 
     expect(summary).toEqual({ tasks: 2, events: 1, deadlines: 1, hasPlan: true });
+  });
+
+  it("supports weekly recurrence on chosen weekdays", () => {
+    expect(occursOn("2026-09-01", "weekly", "2026-09-14", [1, 3])).toBe(true);
+    expect(occursOn("2026-09-01", "weekly", "2026-09-16", [1, 3])).toBe(true);
+    expect(occursOn("2026-09-01", "weekly", "2026-09-15", [1, 3])).toBe(false);
   });
 
   it("searches tasks, deadlines, events and plans but excludes finance and goals", () => {

@@ -139,14 +139,18 @@ button {
 
 .profile {
   position: absolute;
-  bottom: 24px;
+  bottom: 72px;
   left: 18px;
   right: 18px;
-  padding: 16px;
+  padding: 18px;
   border-radius: 18px;
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 13px;
+  font-family: var(--font-cormorant), serif;
+  font-size: 22px;
+  font-style: italic;
+  line-height: 1.1;
+  text-align: center;
 }
 
 .main {
@@ -305,7 +309,7 @@ button {
 
 .card h3 {
   font-family: var(--font-cormorant), serif;
-  font-size: 26px;
+  font-size: 27px;
   font-weight: 500;
   line-height: 1.12;
   letter-spacing: -0.01em;
@@ -331,6 +335,9 @@ button {
 
 .card-body {
   min-height: 72px;
+  color: var(--text);
+  font-size: 17px;
+  line-height: 1.25;
 }
 
 .empty {
@@ -382,6 +389,14 @@ button {
   gap: 10px;
   padding: 7px 0;
   border-bottom: 1px solid var(--border);
+  align-items: start;
+  font-weight: 400;
+}
+
+.deadline-row b,
+.event-row b,
+.money-row b {
+  font-weight: 500;
 }
 
 .deadline-row small {
@@ -599,6 +614,28 @@ button {
   font-weight: 500;
 }
 
+.weekday-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.weekday-picker button {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: var(--muted);
+  background: var(--surface);
+  font-weight: 500;
+}
+
+.weekday-picker button.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .form-grid .wide {
   grid-column: 1 / -1;
 }
@@ -719,6 +756,12 @@ textarea {
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 22px;
   background: color-mix(in srgb, var(--surface) 80%, transparent);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.calendar-cell {
+  color: inherit;
 }
 
 .calendar-cell b {
@@ -739,6 +782,11 @@ textarea {
 .calendar-cell.today-cell {
   outline: 3px solid color-mix(in srgb, var(--accent) 35%, transparent);
   background: color-mix(in srgb, var(--surface) 62%, var(--accent-soft));
+}
+
+.calendar-cell.selected-cell {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 15%, transparent), var(--shadow);
 }
 
 .calendar-cell.has-items {
@@ -800,6 +848,53 @@ textarea {
 .calendar-pills .deadline-dot {
   color: color-mix(in srgb, var(--accent) 65%, #8e2b55);
   background: color-mix(in srgb, var(--accent-soft) 78%, #ffe0e0);
+}
+
+.calendar-detail {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 24px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.calendar-detail h3 {
+  margin: 0 0 12px;
+  font-family: var(--font-cormorant), serif;
+  font-size: 28px;
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.plan-note {
+  margin: 0 0 12px;
+  color: var(--muted);
+}
+
+.day-detail-row {
+  display: grid;
+  grid-template-columns: 92px 90px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.day-detail-row span {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 13px;
+}
+
+.day-detail-row b {
+  font-weight: 500;
+}
+
+.day-detail-row p {
+  margin: 0;
 }
 
 .overview-list {
