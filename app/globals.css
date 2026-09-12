@@ -75,7 +75,7 @@ body {
   background: radial-gradient(circle at top right, var(--accent-soft), transparent 34%), var(--bg);
   color: var(--text);
   font-family: var(--font-inter), system-ui, sans-serif;
-  font-weight: 450;
+  font-weight: 400;
 }
 
 button,
@@ -159,8 +159,8 @@ button {
   top: 0;
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 0;
+  gap: 12px;
+  padding: 8px 0;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(18px);
 }
@@ -168,7 +168,7 @@ button {
 .topbar h2 {
   margin-right: auto;
   font-family: var(--font-cormorant), serif;
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 500;
   line-height: 1;
 }
@@ -178,9 +178,9 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: min(320px, 32vw);
-  min-height: 44px;
-  padding: 8px 14px;
+  width: min(300px, 30vw);
+  min-height: 38px;
+  padding: 7px 12px;
   border: 1px solid var(--border);
   border-radius: 16px;
   background: var(--surface);
@@ -234,11 +234,11 @@ button {
   gap: 8px;
   border: 0;
   border-radius: 16px;
-  min-height: 44px;
-  padding: 9px 16px;
+  min-height: 38px;
+  padding: 7px 14px;
   color: white;
   background: var(--accent);
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .secondary,
@@ -304,9 +304,15 @@ button {
 }
 
 .card h3 {
-  font-size: 20px;
-  font-weight: 650;
+  font-family: var(--font-cormorant), serif;
+  font-size: 26px;
+  font-weight: 500;
   line-height: 1.12;
+  letter-spacing: -0.01em;
+}
+
+.card h3 span {
+  font-weight: 500;
 }
 
 .card h3 svg {
@@ -332,7 +338,8 @@ button {
   min-height: 64px;
   place-items: center;
   color: var(--muted);
-  font-weight: 550;
+  font-weight: 500;
+  text-align: center;
 }
 
 .check-row {
@@ -383,18 +390,38 @@ button {
 }
 
 .deadline-row.soon b,
-.deadline-row.overdue b,
-.editable-row.soon,
-.editable-row.overdue {
+.deadline-row.overdue b {
   border-radius: 16px;
   padding: 8px;
   background: color-mix(in srgb, var(--accent) 17%, transparent);
   color: var(--accent);
 }
 
-.deadline-row.overdue b,
-.editable-row.overdue {
+.deadline-row.overdue b {
   background: color-mix(in srgb, #8e2b55 22%, transparent);
+}
+
+.deadline-item {
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-left: 8px;
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-size: 13px;
+  font-weight: 550;
+  vertical-align: middle;
+}
+
+.status-chip.overdue {
+  color: color-mix(in srgb, var(--accent) 68%, #7c2547);
+  background: color-mix(in srgb, var(--accent-soft) 70%, #f3d8df);
 }
 
 .finance-mini {
@@ -416,7 +443,7 @@ button {
   display: block;
   white-space: nowrap;
   font-size: clamp(20px, 1.6vw, 26px);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .finance-mini p span,
@@ -435,7 +462,7 @@ button {
   border-right-color: var(--accent);
   border-radius: 50%;
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .image-card {
@@ -548,7 +575,7 @@ button {
 .editable-row h3,
 .med-row h3 {
   margin: 0 0 6px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .editable-row p,
@@ -569,7 +596,7 @@ button {
   display: grid;
   gap: 8px;
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .form-grid .wide {
@@ -616,7 +643,7 @@ textarea {
   outline: none;
   color: var(--text);
   background: var(--surface);
-  font-weight: 500;
+  font-weight: 400;
 }
 
 textarea {
@@ -674,7 +701,7 @@ textarea {
   color: var(--muted);
   text-align: center;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
@@ -684,11 +711,23 @@ textarea {
 }
 
 .calendar-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   min-height: 112px;
   padding: 13px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
   border-radius: 22px;
   background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
+.calendar-cell b {
+  display: block;
+  margin: 0;
+  color: var(--text);
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 .calendar-cell.muted {
@@ -721,14 +760,15 @@ textarea {
   background: var(--surface);
   font-size: 12px;
   font-style: normal;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .calendar-cell small {
   display: inline-block;
-  margin-top: 18px;
+  margin-top: 0;
   color: color-mix(in srgb, var(--muted) 68%, transparent);
   font-weight: 500;
+  line-height: 1.2;
 }
 
 .calendar-pills {
@@ -744,7 +784,7 @@ textarea {
   border-radius: 999px;
   padding: 5px 9px;
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .calendar-pills .task-dot {
@@ -766,13 +806,13 @@ textarea {
   display: grid;
   gap: 10px;
   color: var(--muted);
-  font-weight: 550;
+  font-weight: 400;
 }
 
 .overview-list b {
   color: var(--text);
   font-size: 18px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .tracker {
@@ -797,7 +837,7 @@ textarea {
   gap: 4px;
   border: 0;
   background: transparent;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .heart-grid svg {
@@ -934,15 +974,18 @@ progress::-webkit-progress-value {
 }
 
 .theme-dot {
-  display: grid;
-  min-height: 92px;
-  place-items: end start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 86px;
   border: 1px solid var(--border);
   border-radius: 24px;
+  padding: 12px;
   color: var(--text);
   background: var(--surface-soft);
-  font-size: 15px;
-  font-weight: 650;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
   box-shadow: var(--shadow);
 }
 
@@ -1087,7 +1130,20 @@ progress::-webkit-progress-value {
   }
 
   .editable-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 12px;
+  }
+
+  .editable-row:has(.mini-check) {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+  }
+
+  .full-edit-row:has(.edit-grid) {
     grid-template-columns: 1fr;
+  }
+
+  .full-edit-row:has(.edit-grid) > button {
+    justify-self: start;
   }
 
   .med-row {
