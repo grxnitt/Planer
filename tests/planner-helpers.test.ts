@@ -55,15 +55,16 @@ describe("planner helpers", () => {
     expect(logs["11"]).toBe(false);
   });
 
-  it("summarizes recurring tasks, events and deadlines for calendar cells", () => {
+  it("summarizes recurring tasks, events, lessons and deadlines for calendar cells", () => {
     const summary = calendarDaySummary("2026-09-14", {
       tasks: [{ date: "2026-09-07", recurrence: "weekly" }, { date: "2026-09-14", recurrence: "none" }],
       events: [{ date: "2026-09-14", recurrence: "none" }],
+      lessons: [{ date: "2026-09-14" }],
       deadlines: [{ date: "2026-09-10", recurrence: "daily" }],
       plans: [{ date: "2026-09-14", description: "Учебный день" }]
     });
 
-    expect(summary).toEqual({ tasks: 2, events: 1, deadlines: 1, hasPlan: true });
+    expect(summary).toEqual({ tasks: 2, events: 1, lessons: 1, deadlines: 1, hasPlan: true });
   });
 
   it("supports weekly recurrence on chosen weekdays", () => {

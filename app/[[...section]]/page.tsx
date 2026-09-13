@@ -3,6 +3,7 @@ import PlannerApp from "@/components/planner-app";
 const allowed = new Set([
   "today",
   "calendar",
+  "lessons",
   "events",
   "tasks",
   "plans",

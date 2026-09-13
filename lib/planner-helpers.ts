@@ -89,6 +89,7 @@ export function calendarDaySummary(
   data: {
     tasks?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
     events?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
+    lessons?: { date: string }[];
     deadlines?: { date: string; recurrence?: RecurrenceLike; repeatDays?: WeekdaySchedule }[];
     plans?: { date: string; description?: string }[];
   }
@@ -96,6 +97,7 @@ export function calendarDaySummary(
   return {
     tasks: (data.tasks || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
     events: (data.events || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
+    lessons: (data.lessons || []).filter((item) => item.date === date).length,
     deadlines: (data.deadlines || []).filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).length,
     hasPlan: (data.plans || []).some((item) => item.date === date && Boolean(item.description?.trim()))
   };
@@ -121,6 +123,7 @@ export type PlannerSearchInput = {
   tasks?: { title: string }[];
   deadlines?: { title: string }[];
   events?: { title: string }[];
+  lessons?: { title: string }[];
   plans?: { description: string; top?: string[]; checklist?: { text: string }[] }[];
   transactions?: { note?: string }[];
   goals?: { title: string }[];
@@ -134,6 +137,7 @@ export function plannerSearch(query: string, data: PlannerSearchInput) {
     ...(data.tasks || []).map((item) => ({ type: "Задача", text: item.title })),
     ...(data.deadlines || []).map((item) => ({ type: "Дедлайн", text: item.title })),
     ...(data.events || []).map((item) => ({ type: "Событие", text: item.title })),
+    ...(data.lessons || []).map((item) => ({ type: "Пара", text: item.title })),
     ...(data.plans || []).map((item) => ({ type: "План", text: [item.description, ...(item.top || []), ...(item.checklist || []).map((check) => check.text)].join(" ") }))
   ].filter((item) => item.text.toLowerCase().includes(q));
 }

@@ -4,10 +4,13 @@ import {
   Bell,
   CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   CreditCard,
   Edit3,
   Heart,
+  GraduationCap,
   ListChecks,
   MoonStar,
   Pill,
@@ -43,6 +46,7 @@ import {
 type Section =
   | "today"
   | "calendar"
+  | "lessons"
   | "events"
   | "tasks"
   | "plans"
@@ -56,6 +60,7 @@ type Recurrence = "none" | "daily" | "weekly" | "monthly";
 type Task = { id: string; title: string; date: string; time?: string; completed: boolean; category: string; goalId?: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule; source?: "spbu"; endTime?: string | null; location?: string | null; educator?: string | null };
+type LessonItem = { id: string; title: string; date: string; time: string; endTime?: string | null; location?: string | null; educator?: string | null };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
 type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
 type Transaction = { id: string; amount: number; type: "income" | "expense"; category: string; date: string; note?: string };
@@ -66,6 +71,7 @@ type PlannerData = {
   tasks: Task[];
   deadlines: Deadline[];
   events: EventItem[];
+  lessons: LessonItem[];
   habits: Habit[];
   medications: Medication[];
   transactions: Transaction[];
@@ -100,6 +106,7 @@ const sidebarPhrases = [
 const nav: { id: Section; label: string; icon: typeof CalendarDays }[] = [
   { id: "today", label: "Сегодня", icon: Sunrise },
   { id: "calendar", label: "Календарь", icon: CalendarDays },
+  { id: "lessons", label: "Пары", icon: GraduationCap },
   { id: "events", label: "События", icon: Clock },
   { id: "tasks", label: "Задачи", icon: ListChecks },
   { id: "plans", label: "Планы", icon: Edit3 },
@@ -123,6 +130,7 @@ const seed: PlannerData = {
     { id: "d2", title: "Отчёт по проекту", date: addDays(2), time: "17:00", category: "Работа", recurrence: "none" }
   ],
   events: [{ id: "e1", title: "Встреча с наставником", date: today, time: "18:30", recurrence: "none" }],
+  lessons: [],
   habits: [
     { id: "h1", title: "Тренировка", color: "#e8749b", logs: {} },
     { id: "h2", title: "Вода", color: "#9ccfc3", logs: {} }
@@ -166,7 +174,10 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
 
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
-    if (saved) setData(JSON.parse(saved));
+    if (saved) {
+      const stored = JSON.parse(saved) as Partial<PlannerData>;
+      setData({ ...seed, ...stored, lessons: stored.lessons || [] });
+    }
     setImage(images[Math.floor(Math.random() * images.length)]);
     setPhrase(sidebarPhrases[Math.floor(Math.random() * sidebarPhrases.length)]);
     setHydrated(true);
@@ -186,20 +197,19 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
       .then((response) => response.ok ? response.json() as Promise<SpbuScheduleResponse> : null)
       .then((schedule) => {
         if (!schedule) return;
-        const imported: EventItem[] = schedule.lessons.map((lesson) => ({
+        const imported: LessonItem[] = schedule.lessons.map((lesson) => ({
           id: `spbu-${lesson.externalId}`,
           title: lesson.title,
           date: lesson.date,
           time: lesson.startTime,
           endTime: lesson.endTime,
           location: lesson.location,
-          educator: lesson.educator,
-          recurrence: "none",
-          source: "spbu"
+          educator: lesson.educator
         }));
         setData((current) => ({
           ...current,
-          events: [...current.events.filter((event) => event.source !== "spbu"), ...imported].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+          events: current.events.filter((event) => event.source !== "spbu"),
+          lessons: imported.sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
         }));
       })
       .catch(() => undefined);
@@ -243,12 +253,13 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
             )}
           </div>
           <Bell />
-          {section !== "today" && <button className="primary" onClick={() => setModal(defaultModal(section))}><Plus />Добавить</button>}
+          {section !== "today" && section !== "lessons" && <button className="primary" onClick={() => setModal(defaultModal(section))}><Plus />Добавить</button>}
         </header>
         {section === "today" && <TodayPage data={data} now={now} image={image} setData={setData} />}
         {section === "tasks" && <TasksPage data={data} setData={setData} />}
         {section === "deadlines" && <DeadlinesPage data={data} now={now} setData={setData} />}
         {section === "events" && <EventsPage data={data} setData={setData} />}
+        {section === "lessons" && <LessonsPage lessons={data.lessons} />}
         {section === "calendar" && <CalendarPage data={data} />}
         {section === "plans" && <PlansPage data={data} setData={setData} />}
         {section === "habits" && <HabitsPage data={data} setData={setData} />}
@@ -290,6 +301,7 @@ function TodayPage({ data, now, image, setData }: {
 }) {
   const todaysTasks = data.tasks.filter((task) => occursOn(task.date, task.recurrence, today, task.repeatDays));
   const todaysEvents = data.events.filter((event) => occursOn(event.date, event.recurrence, today, event.repeatDays));
+  const todaysLessons = data.lessons.filter((lesson) => lesson.date === today);
   const spent = data.transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
   const budget = 40000;
   const todayDay = String(now.getDate());
@@ -318,6 +330,9 @@ function TodayPage({ data, now, image, setData }: {
         </Card>
         <Card title="События сегодня" icon={<Clock />}>
           {todaysEvents.length ? todaysEvents.map((event) => <div className="event-row" key={event.id}><b>{event.time}</b><span>{event.title}</span></div>) : <Empty text="Событий сегодня нет" />}
+        </Card>
+        <Card title="Пары сегодня" icon={<GraduationCap />}>
+          {todaysLessons.length ? todaysLessons.map((lesson) => <div className="event-row" key={lesson.id}><b>{lesson.time}</b><span>{lesson.title}</span></div>) : <Empty text="Пар сегодня нет" />}
         </Card>
         <Card title="Привычки" icon={<Heart />}>
           <div className="overview-list">
@@ -424,8 +439,31 @@ function DeadlineRow({ deadline, now, setData }: { deadline: Deadline; now: Date
 }
 
 function EventsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
-  const spbuCount = data.events.filter((event) => event.source === "spbu").length;
-  return <ListPage title="События"><section className="schedule-notice"><div><span>Расписание СПбГУ</span><p>{spbuCount ? `Загружено занятий: ${spbuCount}. Сверяем расписание каждый час.` : "Занятия появятся после первой автоматической синхронизации."}</p></div><button className="secondary" onClick={() => window.location.reload()}>Проверить</button></section>{data.events.map((event) => <EventRow key={event.id} event={event} setData={setData} />)}</ListPage>;
+  return <ListPage title="События">{data.events.length ? data.events.map((event) => <EventRow key={event.id} event={event} setData={setData} />) : <Empty text="Событий пока нет" />}</ListPage>;
+}
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00`);
+  value.setDate(value.getDate() + days);
+  return isoToday(value);
+}
+
+function mondayFor(date: string) {
+  const value = new Date(`${date}T12:00:00`);
+  const offset = (value.getDay() + 6) % 7;
+  return shiftDate(date, -offset);
+}
+
+function LessonsPage({ lessons }: { lessons: LessonItem[] }) {
+  const [weekStart, setWeekStart] = useState(() => mondayFor(today));
+  const days = Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index));
+  const weekEnd = days[6];
+  const label = `${dateRu(weekStart)} — ${dateRu(weekEnd)}`;
+  return <ListPage title="Пары"><section className="schedule-notice"><div><span>Расписание СПбГУ</span><p>Сверяем расписание автоматически раз в 2 часа.</p></div><button className="secondary" onClick={() => window.location.reload()}>Обновить список</button></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{label}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="lessons-week">{days.map((date) => {
+    const dayLessons = lessons.filter((lesson) => lesson.date === date);
+    const dayLabel = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
+    return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}</div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
+  })}</div></ListPage>;
 }
 
 function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -447,11 +485,11 @@ function CalendarPage({ data }: { data: PlannerData }) {
   const monthLabel = new Intl.DateTimeFormat("ru-RU", { month: "long", year: "numeric" }).format(month);
   const details = calendarItemsForDate(data, selectedDate);
   const plan = data.plans[selectedDate];
-  return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Нажми на день, чтобы увидеть задачи, события, дедлайны и план</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
+  return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Нажми на день, чтобы увидеть задачи, события, пары, дедлайны и план</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
     const date = localIsoDate(month.getFullYear(), month.getMonth(), day);
     const summary = calendarDaySummary(date, { ...data, plans: Object.values(data.plans) });
-    const total = summary.tasks + summary.events + summary.deadlines + (summary.hasPlan ? 1 : 0);
-    return <button type="button" key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${selectedDate === date ? "selected-cell" : ""} ${total ? "has-items" : ""}`} onClick={() => setSelectedDate(date)}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>нет планов</small>}</button>;
+    const total = summary.tasks + summary.events + summary.lessons + summary.deadlines + (summary.hasPlan ? 1 : 0);
+    return <button type="button" key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${selectedDate === date ? "selected-cell" : ""} ${total ? "has-items" : ""}`} onClick={() => setSelectedDate(date)}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.lessons > 0 && <span className="lesson-dot">{summary.lessons} пар</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>нет планов</small>}</button>;
   })}</div><section className="calendar-detail"><h3>{dateRu(selectedDate)}</h3>{plan?.description?.trim() && <p className="plan-note">{plan.description}</p>}{details.length ? details.map((item) => <div className={`day-detail-row ${item.kind}`} key={item.kind + item.id}><span>{item.label}</span><b>{item.time || "без времени"}</b><p>{item.title}</p></div>) : <Empty text="На этот день нет планов" />}</section></div></ListPage>;
 }
 
@@ -459,6 +497,7 @@ function calendarItemsForDate(data: PlannerData, date: string) {
   return [
     ...data.tasks.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "task", label: "Задача", time: item.time, title: item.title })),
     ...data.events.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "event", label: "Событие", time: item.time, title: item.title })),
+    ...data.lessons.filter((item) => item.date === date).map((item) => ({ id: item.id, kind: "lesson", label: "Пара СПбГУ", time: item.time, title: item.title })),
     ...data.deadlines.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "deadline", label: "Дедлайн", time: item.time, title: item.title }))
   ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 }
