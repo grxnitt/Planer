@@ -14,8 +14,9 @@ describe("SPbU timetable filtering", () => {
   });
 
   it("keeps only the requested English trajectory and teacher", () => {
+    expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г." })).toBe(true);
     expect(isTrackedSpbuLesson({ title: "Траектория 3 (B1 – B2). Английский язык, практическое занятие", educator: "Удинская А. Г." })).toBe(true);
-    expect(isTrackedSpbuLesson({ title: "Траектория 3 (B1 – B2). Английский язык, практическое занятие", educator: "Другой преподаватель" })).toBe(false);
-    expect(isTrackedSpbuLesson({ title: "Траектория 2 (B1 – B2). Английский язык, практическое занятие", educator: "Удинская А. Г." })).toBe(false);
+    expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Другой преподаватель" })).toBe(false);
+    expect(isTrackedSpbuLesson({ title: "Траектория 2 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г." })).toBe(false);
   });
 });

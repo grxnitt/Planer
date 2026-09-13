@@ -41,7 +41,7 @@ export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator
   const selectedElective = ELECTIVE_TITLES.some((elective) => title.includes(elective));
   const selectedEnglish = title.includes("траектория 3")
     && isEnglish
-    && /b1\s*-\s*b2/.test(title)
+    && /[bв]1\s*-\s*[bв]2/.test(title)
     && educator.includes("удинская");
 
   if (isElective) return selectedElective;
