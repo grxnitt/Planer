@@ -98,6 +98,8 @@ button {
 .sidebar {
   position: sticky;
   top: 0;
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   padding: 28px 18px;
   border-right: 1px solid var(--border);
@@ -117,8 +119,15 @@ button {
 }
 
 .sidebar nav {
-  display: grid;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   gap: 8px;
+  min-height: 0;
+}
+
+.sidebar nav a:last-child {
+  margin-top: auto;
 }
 
 .sidebar a:not(.brand) {
@@ -138,16 +147,14 @@ button {
 }
 
 .profile {
-  position: absolute;
-  bottom: 72px;
-  left: 18px;
-  right: 18px;
+  flex: 0 0 auto;
+  margin-top: 14px;
   padding: 18px;
   border-radius: 18px;
   background: var(--surface-soft);
   color: var(--muted);
   font-family: var(--font-cormorant), serif;
-  font-size: 22px;
+  font-size: 19px;
   font-style: italic;
   line-height: 1.1;
   text-align: center;
@@ -276,8 +283,8 @@ button {
 
 .dashboard {
   display: grid;
-  grid-template-columns: repeat(4, minmax(190px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(4, minmax(210px, 1fr));
+  gap: 12px;
 }
 
 .card,
@@ -293,8 +300,8 @@ button {
 }
 
 .card {
-  min-height: 162px;
-  padding: 18px;
+  min-height: 148px;
+  padding: 16px;
 }
 
 .card h3,
@@ -309,7 +316,7 @@ button {
 
 .card h3 {
   font-family: var(--font-cormorant), serif;
-  font-size: 27px;
+  font-size: clamp(23px, 1.55vw, 26px);
   font-weight: 500;
   line-height: 1.12;
   letter-spacing: -0.01em;
@@ -334,10 +341,24 @@ button {
 }
 
 .card-body {
-  min-height: 72px;
+  min-height: 64px;
   color: var(--text);
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1.25;
+}
+
+.card .deadline-row,
+.card .event-row,
+.card .money-row {
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 14px;
+}
+
+.card .deadline-row span,
+.card .event-row span,
+.card .money-row span {
+  overflow-wrap: anywhere;
 }
 
 .empty {
@@ -1234,6 +1255,27 @@ button.calendar-cell {
   border-left: 4px solid var(--accent);
 }
 
+.lesson-deadline-link {
+  display: inline-flex;
+  margin: 3px 0 7px;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.lesson-deadline-link:hover {
+  text-decoration: underline;
+}
+
+.deadline-countdown {
+  display: block;
+  margin-top: 7px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .lesson-empty {
   padding: 14px 16px;
 }
@@ -1551,7 +1593,7 @@ progress::-webkit-progress-value {
 
 @media (max-width: 1280px) {
   .dashboard {
-    grid-template-columns: repeat(3, minmax(190px, 1fr));
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
   }
 
   .finance-charts {
@@ -1576,6 +1618,11 @@ progress::-webkit-progress-value {
 
   .sidebar nav {
     grid-template-columns: repeat(2, 1fr);
+    display: grid;
+  }
+
+  .sidebar nav a:last-child {
+    margin-top: 0;
   }
 
   .profile {

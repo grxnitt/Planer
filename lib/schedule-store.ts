@@ -13,13 +13,16 @@ export async function saveSpbuLessons(lessons: SpbuLesson[]) {
   const sql = database();
   const now = new Date().toISOString();
   try {
+    // Keeps deployed projects compatible when this field is introduced after
+    // the initial timetable table has already been created.
+    await sql`alter table schedule_lessons add column if not exists subgroup text`;
     await sql.begin(async (transaction) => {
       for (const lesson of lessons) {
         await transaction`
           insert into schedule_lessons (
-            external_id, group_id, lesson_date, start_time, end_time, title, location, educator, source_url, last_seen_at, cancelled
+            external_id, group_id, lesson_date, start_time, end_time, title, location, educator, subgroup, source_url, last_seen_at, cancelled
           ) values (
-            ${lesson.externalId}, ${"460105"}, ${lesson.date}, ${lesson.startTime}, ${lesson.endTime}, ${lesson.title}, ${lesson.location}, ${lesson.educator}, ${lesson.sourceUrl}, ${now}, false
+            ${lesson.externalId}, ${"460105"}, ${lesson.date}, ${lesson.startTime}, ${lesson.endTime}, ${lesson.title}, ${lesson.location}, ${lesson.educator}, ${lesson.subgroup}, ${lesson.sourceUrl}, ${now}, false
           )
           on conflict (external_id) do update set
             lesson_date = excluded.lesson_date,
@@ -28,6 +31,7 @@ export async function saveSpbuLessons(lessons: SpbuLesson[]) {
             title = excluded.title,
             location = excluded.location,
             educator = excluded.educator,
+            subgroup = excluded.subgroup,
             source_url = excluded.source_url,
             last_seen_at = excluded.last_seen_at,
             cancelled = false,
@@ -47,7 +51,7 @@ export async function upcomingSpbuLessons(): Promise<{ lessons: StoredLesson[]; 
     const lessons = await sql<StoredLesson[]>`
       select
         external_id as "externalId", lesson_date::text as date, start_time::text as "startTime", end_time::text as "endTime",
-        title, location, educator, source_url as "sourceUrl", updated_at::text as "updatedAt"
+        title, location, educator, subgroup, source_url as "sourceUrl", updated_at::text as "updatedAt"
       from schedule_lessons
       where group_id = ${"460105"} and cancelled = false and lesson_date >= current_date - 1
       order by lesson_date asc, start_time asc

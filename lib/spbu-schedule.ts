@@ -12,6 +12,7 @@ export type SpbuLesson = {
   title: string;
   location: string | null;
   educator: string | null;
+  subgroup: string | null;
   sourceUrl: string;
 };
 
@@ -33,16 +34,18 @@ function comparable(value: string | null | undefined) {
  * Keep every regular class. Restrict only the parallel elective and English
  * streams to the student's own choices.
  */
-export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator">) {
+export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator" | "subgroup">) {
   const title = comparable(lesson.title);
   const educator = comparable(lesson.educator);
-  const isElective = title.includes("электив");
-  const isEnglish = title.includes("английский язык");
+  const subgroup = comparable(lesson.subgroup);
+  const isElective = title.includes("электив") || title.includes("elective");
+  const isEnglish = title.includes("английский язык") || title.includes("english");
   const selectedElective = ELECTIVE_TITLES.some((elective) => title.includes(elective));
   const selectedEnglish = title.includes("траектория 3")
     && isEnglish
     && /[bв]1\s*-\s*[bв]2/.test(title)
-    && educator.includes("удинская");
+    && educator.includes("удинская")
+    && /(?:подгруппа|cohort)\s*5\b/.test(subgroup);
 
   if (isElective) return selectedElective;
   if (isEnglish) return selectedEnglish;
@@ -84,9 +87,10 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
 
       const location = clean($(row).find(".studyevent-locations .hoverable").first().text()) || null;
       const educator = clean($(row).find(".studyevent-educators a").map((_, anchor) => clean($(anchor).text())).get().join(", ")) || null;
+      const subgroup = clean($(row).find(".studyevent-subject .glyphicon-transfer").parent().text()) || null;
       const dateValue = localDate(date);
       const externalId = createHash("sha256")
-        .update([SPBU_GROUP_ID, dateValue, startRaw, title, location || "", educator || ""].join("|"))
+        .update([SPBU_GROUP_ID, dateValue, startRaw, title, subgroup || "", location || "", educator || ""].join("|"))
         .digest("hex");
 
       const lesson = {
@@ -97,6 +101,7 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
         title,
         location,
         educator,
+        subgroup,
         sourceUrl
       };
       lessons.push(lesson);

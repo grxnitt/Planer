@@ -24,6 +24,7 @@ import {
   Trash2
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   calendarDaySummary,
@@ -60,7 +61,7 @@ type Recurrence = "none" | "daily" | "weekly" | "monthly";
 type Task = { id: string; title: string; date: string; time?: string; completed: boolean; category: string; goalId?: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule; source?: "spbu"; endTime?: string | null; location?: string | null; educator?: string | null };
-type LessonItem = { id: string; title: string; date: string; time: string; endTime?: string | null; location?: string | null; educator?: string | null };
+type LessonItem = { id: string; title: string; date: string; time: string; endTime?: string | null; location?: string | null; educator?: string | null; subgroup?: string | null };
 type LessonNote = { id: string; lessonId: string; text: string; deadlineDate?: string; deadlineTime?: string };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
 type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
@@ -82,7 +83,7 @@ type PlannerData = {
   goals: Goal[];
 };
 type SpbuScheduleResponse = {
-  lessons: { externalId: string; date: string; startTime: string; endTime: string | null; title: string; location: string | null; educator: string | null }[];
+  lessons: { externalId: string; date: string; startTime: string; endTime: string | null; title: string; location: string | null; educator: string | null; subgroup: string | null }[];
   updatedAt: string | null;
 };
 
@@ -207,7 +208,8 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
           time: lesson.startTime,
           endTime: lesson.endTime,
           location: lesson.location,
-          educator: lesson.educator
+          educator: lesson.educator,
+          subgroup: lesson.subgroup
         }));
         setData((current) => ({
           ...current,
@@ -431,9 +433,9 @@ function DeadlinesPage({ data, now, setData }: { data: PlannerData; now: Date; s
   return <ListPage title="Дедлайны с временем">{data.deadlines.map((deadline) => <DeadlineRow key={deadline.id} deadline={deadline} now={now} setData={setData} />)}{homework.map((deadline) => <LessonDeadlineRow key={deadline.id} deadline={deadline} now={now} />)}{!data.deadlines.length && !homework.length && <Empty text="Дедлайнов пока нет" />}</ListPage>;
 }
 
-function LessonDeadlineRow({ deadline, now }: { deadline: Deadline; now: Date }) {
+function LessonDeadlineRow({ deadline, now }: { deadline: LessonNoteDeadline; now: Date }) {
   const status = statusForDeadline(deadline.date, deadline.time, now);
-  return <div className="editable-row full-edit-row homework-deadline"><div><span className="source-label">Домашнее задание к паре</span><h3>{deadline.title}</h3><p>{dateRu(deadline.date)} · {deadline.time || "Без времени"} <span className={`status-chip ${status.kind}`}>{status.label}</span></p></div></div>;
+  return <div className="editable-row full-edit-row homework-deadline"><div><span className="source-label">Домашнее задание</span><h3>{deadline.title}</h3><Link className="lesson-deadline-link" href={`/lessons?date=${deadline.lesson.date}#lesson-${deadline.lesson.id}`}>К паре: {deadline.lesson.title}</Link><p>{dateRu(deadline.date)} · {deadline.time || "Без времени"} <span className={`status-chip ${status.kind}`}>{status.label}</span><strong className="deadline-countdown">{deadlineCountdown(deadline.date, deadline.time, now)}</strong></p></div></div>;
 }
 
 function DeadlineRow({ deadline, now, setData }: { deadline: Deadline; now: Date; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -466,14 +468,19 @@ function mondayFor(date: string) {
 
 function LessonsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
   const { lessons } = data;
-  const [weekStart, setWeekStart] = useState(() => mondayFor(today));
+  const searchParams = useSearchParams();
+  const requestedDate = searchParams.get("date");
+  const [weekStart, setWeekStart] = useState(() => mondayFor(requestedDate || today));
+  useEffect(() => {
+    if (requestedDate) setWeekStart(mondayFor(requestedDate));
+  }, [requestedDate]);
   const days = Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index));
   const weekEnd = days[6];
   const label = `${dateRu(weekStart)} — ${dateRu(weekEnd)}`;
   return <ListPage title="Пары"><section className="schedule-notice"><div><span>Расписание СПбГУ</span><p>Сверяем расписание автоматически раз в 2 часа.</p></div><button className="secondary" onClick={() => window.location.reload()}>Обновить список</button></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{label}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="lessons-week">{days.map((date) => {
     const dayLessons = lessons.filter((lesson) => lesson.date === date);
     const dayLabel = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
-    return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}<LessonNoteEditor lesson={lesson} note={data.lessonNotes.find((note) => note.lessonId === lesson.id)} setData={setData} /></div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
+    return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" id={`lesson-${lesson.id}`} key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.subgroup && <small>{lesson.subgroup}</small>}{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}<LessonNoteEditor lesson={lesson} note={data.lessonNotes.find((note) => note.lessonId === lesson.id)} setData={setData} /></div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
   })}</div></ListPage>;
 }
 
@@ -534,13 +541,28 @@ function calendarItemsForDate(data: PlannerData, date: string) {
   ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
 }
 
-function lessonNoteDeadlines(data: PlannerData): Deadline[] {
+type LessonNoteDeadline = Deadline & { lesson: LessonItem };
+
+function lessonNoteDeadlines(data: PlannerData): LessonNoteDeadline[] {
   const lessons = new Map(data.lessons.map((lesson) => [lesson.id, lesson]));
   return data.lessonNotes.flatMap((note) => {
     const lesson = lessons.get(note.lessonId);
     if (!lesson || !note.deadlineDate) return [];
-    return [{ id: `lesson-note-${note.id}`, title: note.text, date: note.deadlineDate, time: note.deadlineTime, category: "Учёба", recurrence: "none" as const }];
+    return [{ id: `lesson-note-${note.id}`, title: note.text, date: note.deadlineDate, time: note.deadlineTime, category: "Учёба", recurrence: "none" as const, lesson }];
   });
+}
+
+function deadlineCountdown(date: string, time: string | undefined, now: Date) {
+  const target = new Date(`${date}T${time || "23:59"}:00`);
+  const difference = target.getTime() - now.getTime();
+  if (difference <= 0) return "Срок вышел";
+  const minutes = Math.floor(difference / 60_000);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const restMinutes = minutes % 60;
+  if (days > 0) return `Осталось ${days} д. ${hours} ч.`;
+  if (hours > 0) return `Осталось ${hours} ч. ${restMinutes} мин.`;
+  return `Осталось ${Math.max(restMinutes, 1)} мин.`;
 }
 
 function PlansPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
