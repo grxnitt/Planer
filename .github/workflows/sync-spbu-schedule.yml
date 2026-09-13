@@ -15,7 +15,10 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          curl --location --fail --silent --show-error \
+          response_file="$(mktemp)"
+          status="$(curl --location --silent --show-error --output "${response_file}" --write-out "%{http_code}" \
             --header "Authorization: Bearer ${CRON_SECRET}" \
             --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
-            "${PLANER_URL}/api/schedule/sync"
+            "${PLANER_URL}/api/schedule/sync")"
+          cat "${response_file}"
+          test "${status}" = "200"
