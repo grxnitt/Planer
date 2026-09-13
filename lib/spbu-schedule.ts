@@ -15,6 +15,33 @@ export type SpbuLesson = {
   sourceUrl: string;
 };
 
+const ELECTIVE_TITLES = [
+  "правовое регулирование отношений в сети интернет",
+  "журналистские расследования"
+];
+
+function comparable(value: string | null | undefined) {
+  return (value || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[–—−]/g, "-")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Only lessons selected by the student are shown in the planner. */
+export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator">) {
+  const title = comparable(lesson.title);
+  const educator = comparable(lesson.educator);
+  const selectedElective = title.includes("электив") && ELECTIVE_TITLES.some((elective) => title.includes(elective));
+  const selectedEnglish = title.includes("траектория 3")
+    && title.includes("английский язык")
+    && /b1\s*-\s*b2/.test(title)
+    && educator.includes("удинская");
+
+  return selectedElective || selectedEnglish;
+}
+
 function clean(value: string | undefined | null) {
   return (value || "").replace(/\s+/g, " ").trim();
 }
@@ -55,7 +82,7 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
         .update([SPBU_GROUP_ID, dateValue, startRaw, title, location || "", educator || ""].join("|"))
         .digest("hex");
 
-      lessons.push({
+      const lesson = {
         externalId,
         date: dateValue,
         startTime: startRaw,
@@ -64,7 +91,8 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
         location,
         educator,
         sourceUrl
-      });
+      };
+      lessons.push(lesson);
     });
   });
 
@@ -88,5 +116,5 @@ export async function fetchUpcomingSpbuLessons(weeks = 6) {
     week.setUTCDate(week.getUTCDate() + index * 7);
     return fetchSpbuWeek(week);
   }));
-  return groups.flat();
+  return groups.flat().filter(isTrackedSpbuLesson);
 }

@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import type { SpbuLesson } from "@/lib/spbu-schedule";
+import { isTrackedSpbuLesson, type SpbuLesson } from "@/lib/spbu-schedule";
 
 export type StoredLesson = SpbuLesson & { updatedAt: string };
 
@@ -56,7 +56,7 @@ export async function upcomingSpbuLessons(): Promise<{ lessons: StoredLesson[]; 
     const [last] = await sql<{ updatedAt: string | null }[]>`
       select max(updated_at)::text as "updatedAt" from schedule_lessons where group_id = ${"460105"}
     `;
-    return { lessons, updatedAt: last?.updatedAt || null };
+    return { lessons: lessons.filter(isTrackedSpbuLesson), updatedAt: last?.updatedAt || null };
   } finally {
     await sql.end({ timeout: 5 });
   }

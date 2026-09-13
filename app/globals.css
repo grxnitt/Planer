@@ -1135,6 +1135,105 @@ button.calendar-cell {
   color: var(--muted);
 }
 
+.lesson-note-trigger {
+  margin-top: 12px;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.lesson-note,
+.lesson-note-form {
+  margin-top: 13px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--accent-soft);
+}
+
+.lesson-note {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 32px 32px;
+  gap: 7px;
+  align-items: start;
+}
+
+.lesson-note span {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.lesson-note p {
+  margin: 3px 0;
+  color: var(--text);
+}
+
+.lesson-note small {
+  color: var(--muted);
+}
+
+.lesson-note button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  color: var(--accent);
+  background: var(--surface);
+}
+
+.lesson-note-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 148px 108px;
+  gap: 9px;
+}
+
+.lesson-note-form textarea,
+.lesson-note-form input {
+  min-height: 42px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+}
+
+.lesson-note-form textarea {
+  resize: vertical;
+}
+
+.lesson-note-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lesson-note-form > div {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.lesson-note-form button {
+  min-height: 36px;
+  padding: 7px 12px;
+}
+
+.homework-deadline {
+  grid-template-columns: minmax(0, 1fr);
+  border-left: 4px solid var(--accent);
+}
+
 .lesson-empty {
   padding: 14px 16px;
 }
@@ -1157,6 +1256,19 @@ button.calendar-cell {
   .lesson-row {
     grid-template-columns: 1fr;
     gap: 5px;
+  }
+
+  .lesson-note-form {
+    grid-template-columns: 1fr;
+  }
+
+  .lesson-note-form > div {
+    grid-column: auto;
+    justify-content: stretch;
+  }
+
+  .lesson-note-form button {
+    flex: 1;
   }
 }
 

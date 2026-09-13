@@ -61,6 +61,7 @@ type Task = { id: string; title: string; date: string; time?: string; completed:
 type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule; source?: "spbu"; endTime?: string | null; location?: string | null; educator?: string | null };
 type LessonItem = { id: string; title: string; date: string; time: string; endTime?: string | null; location?: string | null; educator?: string | null };
+type LessonNote = { id: string; lessonId: string; text: string; deadlineDate?: string; deadlineTime?: string };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
 type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
 type Transaction = { id: string; amount: number; type: "income" | "expense"; category: string; date: string; note?: string };
@@ -72,6 +73,7 @@ type PlannerData = {
   deadlines: Deadline[];
   events: EventItem[];
   lessons: LessonItem[];
+  lessonNotes: LessonNote[];
   habits: Habit[];
   medications: Medication[];
   transactions: Transaction[];
@@ -131,6 +133,7 @@ const seed: PlannerData = {
   ],
   events: [{ id: "e1", title: "Встреча с наставником", date: today, time: "18:30", recurrence: "none" }],
   lessons: [],
+  lessonNotes: [],
   habits: [
     { id: "h1", title: "Тренировка", color: "#e8749b", logs: {} },
     { id: "h2", title: "Вода", color: "#9ccfc3", logs: {} }
@@ -176,7 +179,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const stored = JSON.parse(saved) as Partial<PlannerData>;
-      setData({ ...seed, ...stored, lessons: stored.lessons || [] });
+      setData({ ...seed, ...stored, lessons: stored.lessons || [], lessonNotes: stored.lessonNotes || [] });
     }
     setImage(images[Math.floor(Math.random() * images.length)]);
     setPhrase(sidebarPhrases[Math.floor(Math.random() * sidebarPhrases.length)]);
@@ -259,7 +262,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
         {section === "tasks" && <TasksPage data={data} setData={setData} />}
         {section === "deadlines" && <DeadlinesPage data={data} now={now} setData={setData} />}
         {section === "events" && <EventsPage data={data} setData={setData} />}
-        {section === "lessons" && <LessonsPage lessons={data.lessons} />}
+        {section === "lessons" && <LessonsPage data={data} setData={setData} />}
         {section === "calendar" && <CalendarPage data={data} />}
         {section === "plans" && <PlansPage data={data} setData={setData} />}
         {section === "habits" && <HabitsPage data={data} setData={setData} />}
@@ -302,6 +305,7 @@ function TodayPage({ data, now, image, setData }: {
   const todaysTasks = data.tasks.filter((task) => occursOn(task.date, task.recurrence, today, task.repeatDays));
   const todaysEvents = data.events.filter((event) => occursOn(event.date, event.recurrence, today, event.repeatDays));
   const todaysLessons = data.lessons.filter((lesson) => lesson.date === today);
+  const allDeadlines = [...data.deadlines, ...lessonNoteDeadlines(data)];
   const spent = data.transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.amount, 0);
   const budget = 40000;
   const todayDay = String(now.getDate());
@@ -323,7 +327,7 @@ function TodayPage({ data, now, image, setData }: {
           {todaysTasks.length ? todaysTasks.map((task) => <CheckRow key={task.id} checked={task.completed} text={task.title} onClick={() => setData((d) => ({ ...d, tasks: d.tasks.map((x) => x.id === task.id ? { ...x, completed: !x.completed } : x) }))} />) : <Empty text="На сегодня задач нет" />}
         </Card>
         <Card title="Ближайшие дедлайны" icon={<CalendarDays />}>
-          {data.deadlines.map((deadline) => {
+          {allDeadlines.slice(0, 5).map((deadline) => {
             const status = statusForDeadline(deadline.date, deadline.time, now);
             return <div key={deadline.id} className={`deadline-row ${status.kind}`}><b>{dateRu(deadline.date)} · {deadline.time || "Без времени"}</b><span>{deadline.title}</span><small>{status.label}</small></div>;
           })}
@@ -423,7 +427,13 @@ function TaskRow({ task, data, setData }: { task: Task; data: PlannerData; setDa
 }
 
 function DeadlinesPage({ data, now, setData }: { data: PlannerData; now: Date; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
-  return <ListPage title="Дедлайны с временем">{data.deadlines.map((deadline) => <DeadlineRow key={deadline.id} deadline={deadline} now={now} setData={setData} />)}</ListPage>;
+  const homework = lessonNoteDeadlines(data);
+  return <ListPage title="Дедлайны с временем">{data.deadlines.map((deadline) => <DeadlineRow key={deadline.id} deadline={deadline} now={now} setData={setData} />)}{homework.map((deadline) => <LessonDeadlineRow key={deadline.id} deadline={deadline} now={now} />)}{!data.deadlines.length && !homework.length && <Empty text="Дедлайнов пока нет" />}</ListPage>;
+}
+
+function LessonDeadlineRow({ deadline, now }: { deadline: Deadline; now: Date }) {
+  const status = statusForDeadline(deadline.date, deadline.time, now);
+  return <div className="editable-row full-edit-row homework-deadline"><div><span className="source-label">Домашнее задание к паре</span><h3>{deadline.title}</h3><p>{dateRu(deadline.date)} · {deadline.time || "Без времени"} <span className={`status-chip ${status.kind}`}>{status.label}</span></p></div></div>;
 }
 
 function DeadlineRow({ deadline, now, setData }: { deadline: Deadline; now: Date; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -454,7 +464,8 @@ function mondayFor(date: string) {
   return shiftDate(date, -offset);
 }
 
-function LessonsPage({ lessons }: { lessons: LessonItem[] }) {
+function LessonsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  const { lessons } = data;
   const [weekStart, setWeekStart] = useState(() => mondayFor(today));
   const days = Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index));
   const weekEnd = days[6];
@@ -462,8 +473,29 @@ function LessonsPage({ lessons }: { lessons: LessonItem[] }) {
   return <ListPage title="Пары"><section className="schedule-notice"><div><span>Расписание СПбГУ</span><p>Сверяем расписание автоматически раз в 2 часа.</p></div><button className="secondary" onClick={() => window.location.reload()}>Обновить список</button></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{label}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="lessons-week">{days.map((date) => {
     const dayLessons = lessons.filter((lesson) => lesson.date === date);
     const dayLabel = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
-    return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}</div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
+    return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}<LessonNoteEditor lesson={lesson} note={data.lessonNotes.find((note) => note.lessonId === lesson.id)} setData={setData} /></div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
   })}</div></ListPage>;
+}
+
+function LessonNoteEditor({ lesson, note, setData }: { lesson: LessonItem; note?: LessonNote; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Omit<LessonNote, "id" | "lessonId">>({ text: "", deadlineDate: "", deadlineTime: "" });
+
+  const beginEditing = () => {
+    setDraft({ text: note?.text || "", deadlineDate: note?.deadlineDate || "", deadlineTime: note?.deadlineTime || "" });
+    setEditing(true);
+  };
+  const save = () => {
+    const text = draft.text.trim();
+    if (!text) return;
+    const next = { text, deadlineDate: draft.deadlineDate || undefined, deadlineTime: draft.deadlineTime || undefined };
+    setData((current) => ({ ...current, lessonNotes: note ? current.lessonNotes.map((item) => item.id === note.id ? { ...item, ...next } : item) : [...current.lessonNotes, { id: uid("lesson-note"), lessonId: lesson.id, ...next }] }));
+    setEditing(false);
+  };
+
+  if (!note && !editing) return <button className="lesson-note-trigger" onClick={beginEditing}>+ добавить заметку</button>;
+  if (!editing) return <div className="lesson-note"><div><span>Заметка</span><p>{note?.text}</p>{note?.deadlineDate && <small>Дедлайн: {dateRu(note.deadlineDate)}{note.deadlineTime ? ` · ${note.deadlineTime}` : ""}</small>}</div><button aria-label="Редактировать заметку" onClick={beginEditing}><Edit3 size={17} /></button><button aria-label="Удалить заметку" onClick={() => setData((current) => ({ ...current, lessonNotes: current.lessonNotes.filter((item) => item.id !== note?.id) }))}><Trash2 size={17} /></button></div>;
+  return <div className="lesson-note-form"><textarea autoFocus value={draft.text} onChange={(event) => setDraft({ ...draft, text: event.target.value })} placeholder="Например: сделать конспект или домашнее задание" /><label>Дедлайн<input type="date" value={draft.deadlineDate || ""} onChange={(event) => setDraft({ ...draft, deadlineDate: event.target.value })} /></label><label>Время<input type="time" value={draft.deadlineTime || ""} onChange={(event) => setDraft({ ...draft, deadlineTime: event.target.value })} /></label><div><button className="secondary" onClick={() => setEditing(false)}>Отмена</button><button className="primary" onClick={save}>Сохранить</button></div></div>;
 }
 
 function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -487,7 +519,7 @@ function CalendarPage({ data }: { data: PlannerData }) {
   const plan = data.plans[selectedDate];
   return <ListPage title="Календарь"><div className="calendar-panel"><div className="calendar-title"><h2>{monthLabel}</h2><p>Нажми на день, чтобы увидеть задачи, события, пары, дедлайны и план</p></div><div className="weekday-row">{["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"].map((day) => <span key={day}>{day}</span>)}</div><div className="calendar-grid pretty">{Array.from({ length: firstOffset }).map((_, index) => <div key={`empty-${index}`} className="calendar-cell muted" />)}{Array.from({ length: monthDays(month) }, (_, i) => i + 1).map((day) => {
     const date = localIsoDate(month.getFullYear(), month.getMonth(), day);
-    const summary = calendarDaySummary(date, { ...data, plans: Object.values(data.plans) });
+    const summary = calendarDaySummary(date, { ...data, deadlines: [...data.deadlines, ...lessonNoteDeadlines(data)], plans: Object.values(data.plans) });
     const total = summary.tasks + summary.events + summary.lessons + summary.deadlines + (summary.hasPlan ? 1 : 0);
     return <button type="button" key={day} className={`calendar-cell ${date === today ? "today-cell" : ""} ${selectedDate === date ? "selected-cell" : ""} ${total ? "has-items" : ""}`} onClick={() => setSelectedDate(date)}><b>{day}</b>{total ? <div className="calendar-pills">{summary.tasks > 0 && <span className="task-dot">{summary.tasks} задач</span>}{summary.events > 0 && <span className="event-dot">{summary.events} событий</span>}{summary.lessons > 0 && <span className="lesson-dot">{summary.lessons} пар</span>}{summary.deadlines > 0 && <span className="deadline-dot">{summary.deadlines} дедл.</span>}{summary.hasPlan && <em>план</em>}</div> : <small>нет планов</small>}</button>;
   })}</div><section className="calendar-detail"><h3>{dateRu(selectedDate)}</h3>{plan?.description?.trim() && <p className="plan-note">{plan.description}</p>}{details.length ? details.map((item) => <div className={`day-detail-row ${item.kind}`} key={item.kind + item.id}><span>{item.label}</span><b>{item.time || "без времени"}</b><p>{item.title}</p></div>) : <Empty text="На этот день нет планов" />}</section></div></ListPage>;
@@ -498,8 +530,17 @@ function calendarItemsForDate(data: PlannerData, date: string) {
     ...data.tasks.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "task", label: "Задача", time: item.time, title: item.title })),
     ...data.events.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "event", label: "Событие", time: item.time, title: item.title })),
     ...data.lessons.filter((item) => item.date === date).map((item) => ({ id: item.id, kind: "lesson", label: "Пара СПбГУ", time: item.time, title: item.title })),
-    ...data.deadlines.filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "deadline", label: "Дедлайн", time: item.time, title: item.title }))
+    ...[...data.deadlines, ...lessonNoteDeadlines(data)].filter((item) => occursOn(item.date, item.recurrence, date, item.repeatDays)).map((item) => ({ id: item.id, kind: "deadline", label: "Дедлайн", time: item.time, title: item.title }))
   ].sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+}
+
+function lessonNoteDeadlines(data: PlannerData): Deadline[] {
+  const lessons = new Map(data.lessons.map((lesson) => [lesson.id, lesson]));
+  return data.lessonNotes.flatMap((note) => {
+    const lesson = lessons.get(note.lessonId);
+    if (!lesson || !note.deadlineDate) return [];
+    return [{ id: `lesson-note-${note.id}`, title: note.text, date: note.deadlineDate, time: note.deadlineTime, category: "Учёба", recurrence: "none" as const }];
+  });
 }
 
 function PlansPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
