@@ -82,6 +82,7 @@ type PlannerData = {
   lessonNotes: LessonNote[];
   workoutTemplates: WorkoutTemplate[];
   workoutSessions: WorkoutSession[];
+  skippedWorkoutDates: string[];
   habits: Habit[];
   medications: Medication[];
   transactions: Transaction[];
@@ -148,6 +149,7 @@ const seed: PlannerData = {
     { id: "w2", title: "Кардио и мобилити", weekDays: [6], exercises: [{ id: "we3", title: "Кардио", sets: 1, reps: 30, weight: null }] }
   ],
   workoutSessions: [],
+  skippedWorkoutDates: [],
   habits: [
     { id: "h1", title: "Тренировка", color: "#e8749b", logs: {} },
     { id: "h2", title: "Вода", color: "#9ccfc3", logs: {} }
@@ -193,7 +195,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const stored = JSON.parse(saved) as Partial<PlannerData>;
-      setData({ ...seed, ...stored, lessons: stored.lessons || [], lessonNotes: stored.lessonNotes || [], workoutTemplates: stored.workoutTemplates || seed.workoutTemplates, workoutSessions: stored.workoutSessions || [] });
+      setData({ ...seed, ...stored, lessons: stored.lessons || [], lessonNotes: stored.lessonNotes || [], workoutTemplates: stored.workoutTemplates || seed.workoutTemplates, workoutSessions: stored.workoutSessions || [], skippedWorkoutDates: stored.skippedWorkoutDates || [] });
     }
     setImage(images[Math.floor(Math.random() * images.length)]);
     setPhrase(sidebarPhrases[Math.floor(Math.random() * sidebarPhrases.length)]);
@@ -504,7 +506,7 @@ function WorkoutsPage({ data, setData }: { data: PlannerData; setData: React.Dis
   const days = Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index));
   const selectedSession = data.workoutSessions.find((session) => session.date === selectedDate);
   const attendedThisWeek = data.workoutSessions.filter((session) => session.attended && days.includes(session.date)).length;
-  const plannedThisWeek = days.filter((date) => data.workoutSessions.some((session) => session.date === date) || data.workoutTemplates.some((template) => template.weekDays.includes(new Date(`${date}T12:00:00`).getDay()))).length;
+  const plannedThisWeek = days.filter((date) => !data.skippedWorkoutDates.includes(date) && (data.workoutSessions.some((session) => session.date === date) || data.workoutTemplates.some((template) => template.weekDays.includes(new Date(`${date}T12:00:00`).getDay())))).length;
 
   const startSession = (date: string, workoutId: string) => {
     const template = data.workoutTemplates.find((item) => item.id === workoutId);
@@ -512,12 +514,13 @@ function WorkoutsPage({ data, setData }: { data: PlannerData; setData: React.Dis
     setData((current) => {
       const existing = current.workoutSessions.find((session) => session.date === date);
       const exercises = template.exercises.map((exercise) => ({ ...exercise, id: uid("exercise") }));
-      return { ...current, workoutSessions: existing ? current.workoutSessions.map((session) => session.id === existing.id ? { ...session, workoutId, exercises } : session) : [...current.workoutSessions, { id: uid("workout"), date, workoutId, attended: false, exercises }] };
+      return { ...current, skippedWorkoutDates: current.skippedWorkoutDates.filter((item) => item !== date), workoutSessions: existing ? current.workoutSessions.map((session) => session.id === existing.id ? { ...session, workoutId, exercises } : session) : [...current.workoutSessions, { id: uid("workout"), date, workoutId, attended: false, exercises }] };
     });
     setSelectedDate(date);
   };
 
-  return <ListPage title="Тренировки"><section className="workout-template-panel"><div><h2>Мои тренировки</h2><p>За эту неделю: {attendedThisWeek} из {plannedThisWeek} тренировок отмечено. Выбери дни недели — тренировка появится в плане автоматически.</p></div><button className="secondary" onClick={() => setData((current) => ({ ...current, workoutTemplates: [...current.workoutTemplates, { id: uid("workout-type"), title: "Новая тренировка", weekDays: [], exercises: [] }] }))}>+ тренировка</button><div className="workout-template-list">{data.workoutTemplates.map((template) => <WorkoutTemplateRow key={template.id} template={template} setData={setData} />)}</div></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{dateRu(days[0])} — {dateRu(days[6])}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="workout-week">{days.map((date) => <WorkoutDayCard key={date} date={date} templates={data.workoutTemplates} session={data.workoutSessions.find((item) => item.date === date)} selected={selectedDate === date} onSelect={() => setSelectedDate(date)} onStart={startSession} setData={setData} />)}</div><WorkoutJournal session={selectedSession} template={data.workoutTemplates.find((item) => item.id === selectedSession?.workoutId)} setData={setData} /></ListPage>;
+  const clearSession = (date: string) => setData((current) => ({ ...current, workoutSessions: current.workoutSessions.filter((session) => session.date !== date), skippedWorkoutDates: current.skippedWorkoutDates.includes(date) ? current.skippedWorkoutDates : [...current.skippedWorkoutDates, date] }));
+  return <ListPage title="Тренировки"><section className="workout-template-panel"><div><h2>Мои тренировки</h2><p>За эту неделю: {attendedThisWeek} из {plannedThisWeek} тренировок отмечено. Выбери дни недели — тренировка появится в плане автоматически.</p></div><button className="secondary" onClick={() => setData((current) => ({ ...current, workoutTemplates: [...current.workoutTemplates, { id: uid("workout-type"), title: "Новая тренировка", weekDays: [], exercises: [] }] }))}>+ тренировка</button><div className="workout-template-list">{data.workoutTemplates.map((template) => <WorkoutTemplateRow key={template.id} template={template} setData={setData} />)}</div></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{dateRu(days[0])} — {dateRu(days[6])}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="workout-week">{days.map((date) => <WorkoutDayCard key={date} date={date} templates={data.workoutTemplates} session={data.workoutSessions.find((item) => item.date === date)} skipped={data.skippedWorkoutDates.includes(date)} selected={selectedDate === date} onSelect={() => setSelectedDate(date)} onStart={startSession} onClear={clearSession} setData={setData} />)}</div><WorkoutJournal session={selectedSession} template={data.workoutTemplates.find((item) => item.id === selectedSession?.workoutId)} setData={setData} /></ListPage>;
 }
 
 function WorkoutTemplateRow({ template, setData }: { template: WorkoutTemplate; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -525,11 +528,11 @@ function WorkoutTemplateRow({ template, setData }: { template: WorkoutTemplate; 
   return <div className="workout-template-row"><input value={template.title} aria-label="Название тренировки" onChange={(event) => update({ title: event.target.value })} /><div className="weekday-picker">{weekDays.map((day) => <button type="button" key={day.value} className={template.weekDays.includes(day.value) ? "active" : ""} onClick={() => update({ weekDays: toggleDay(template.weekDays, day.value) })}>{day.label}</button>)}</div><button aria-label="Удалить тренировку" onClick={() => setData((current) => ({ ...current, workoutTemplates: current.workoutTemplates.filter((item) => item.id !== template.id), workoutSessions: current.workoutSessions.filter((session) => session.workoutId !== template.id) }))}><Trash2 size={17} /></button></div>;
 }
 
-function WorkoutDayCard({ date, templates, session, selected, onSelect, onStart, setData }: { date: string; templates: WorkoutTemplate[]; session?: WorkoutSession; selected: boolean; onSelect: () => void; onStart: (date: string, workoutId: string) => void; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+function WorkoutDayCard({ date, templates, session, skipped, selected, onSelect, onStart, onClear, setData }: { date: string; templates: WorkoutTemplate[]; session?: WorkoutSession; skipped: boolean; selected: boolean; onSelect: () => void; onStart: (date: string, workoutId: string) => void; onClear: (date: string) => void; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
   const dayNumber = new Date(`${date}T12:00:00`).getDay();
-  const planned = templates.find((template) => template.weekDays.includes(dayNumber));
+  const planned = skipped ? undefined : templates.find((template) => template.weekDays.includes(dayNumber));
   const workout = templates.find((template) => template.id === session?.workoutId) || planned;
-  return <article className={`workout-day ${selected ? "selected-workout-day" : ""} ${session?.attended ? "attended" : ""}`} onClick={onSelect}><header><span>{new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(`${date}T12:00:00`))}</span><b>{new Date(`${date}T12:00:00`).getDate()}</b></header>{workout ? <><select value={workout.id} onClick={(event) => event.stopPropagation()} onChange={(event) => onStart(date, event.target.value)}>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select><button className="workout-open" onClick={(event) => { event.stopPropagation(); onStart(date, workout.id); }}>{session?.attended ? "Тренировка записана" : "Открыть журнал"}</button>{session && <button className="attendance-toggle" onClick={(event) => { event.stopPropagation(); setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, attended: !item.attended } : item) })); }}>{session.attended ? "✓ Была" : "Отметить, что была"}</button>}</> : <select value="" onClick={(event) => event.stopPropagation()} onChange={(event) => onStart(date, event.target.value)}><option value="" disabled>Выбери тренировку</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select>}</article>;
+  return <article className={`workout-day ${selected ? "selected-workout-day" : ""} ${session?.attended ? "attended" : ""}`} onClick={onSelect}><header><span>{new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(`${date}T12:00:00`))}</span><b>{new Date(`${date}T12:00:00`).getDate()}</b></header>{workout ? <><select value={workout.id} onClick={(event) => event.stopPropagation()} onChange={(event) => event.target.value ? onStart(date, event.target.value) : onClear(date)}><option value="">Без тренировки</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select><button className="workout-open" onClick={(event) => { event.stopPropagation(); onStart(date, workout.id); }}>{session?.attended ? "Тренировка записана" : "Открыть журнал"}</button>{session && <button className="attendance-toggle" onClick={(event) => { event.stopPropagation(); setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, attended: !item.attended } : item) })); }}>{session.attended ? "✓ Была" : "Отметить, что была"}</button>}</> : <select value="" onClick={(event) => event.stopPropagation()} onChange={(event) => event.target.value && onStart(date, event.target.value)}><option value="">Выбери тренировку</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select>}</article>;
 }
 
 function WorkoutJournal({ session, template, setData }: { session?: WorkoutSession; template?: WorkoutTemplate; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
