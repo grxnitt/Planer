@@ -13,7 +13,9 @@ jobs:
         env:
           PLANER_URL: ${{ secrets.PLANER_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          curl --fail --silent --show-error \
+          curl --location --fail --silent --show-error \
             --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "x-vercel-protection-bypass: ${VERCEL_AUTOMATION_BYPASS_SECRET}" \
             "${PLANER_URL}/api/schedule/sync"
