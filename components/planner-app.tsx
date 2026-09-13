@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  Dumbbell,
   Edit3,
   Heart,
   GraduationCap,
@@ -48,6 +49,7 @@ type Section =
   | "today"
   | "calendar"
   | "lessons"
+  | "workouts"
   | "events"
   | "tasks"
   | "plans"
@@ -63,6 +65,9 @@ type Deadline = { id: string; title: string; date: string; time?: string; catego
 type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule; source?: "spbu"; endTime?: string | null; location?: string | null; educator?: string | null };
 type LessonItem = { id: string; title: string; date: string; time: string; endTime?: string | null; location?: string | null; educator?: string | null; subgroup?: string | null };
 type LessonNote = { id: string; lessonId: string; text: string; deadlineDate?: string; deadlineTime?: string };
+type WorkoutExercise = { id: string; title: string; sets: number; reps: number; weight: number | null };
+type WorkoutTemplate = { id: string; title: string; weekDays: number[]; exercises: WorkoutExercise[] };
+type WorkoutSession = { id: string; date: string; workoutId: string; attended: boolean; exercises: WorkoutExercise[] };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
 type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
 type Transaction = { id: string; amount: number; type: "income" | "expense"; category: string; date: string; note?: string };
@@ -75,6 +80,8 @@ type PlannerData = {
   events: EventItem[];
   lessons: LessonItem[];
   lessonNotes: LessonNote[];
+  workoutTemplates: WorkoutTemplate[];
+  workoutSessions: WorkoutSession[];
   habits: Habit[];
   medications: Medication[];
   transactions: Transaction[];
@@ -110,6 +117,7 @@ const nav: { id: Section; label: string; icon: typeof CalendarDays }[] = [
   { id: "today", label: "Сегодня", icon: Sunrise },
   { id: "calendar", label: "Календарь", icon: CalendarDays },
   { id: "lessons", label: "Пары", icon: GraduationCap },
+  { id: "workouts", label: "Тренировки", icon: Dumbbell },
   { id: "events", label: "События", icon: Clock },
   { id: "tasks", label: "Задачи", icon: ListChecks },
   { id: "plans", label: "Планы", icon: Edit3 },
@@ -135,6 +143,11 @@ const seed: PlannerData = {
   events: [{ id: "e1", title: "Встреча с наставником", date: today, time: "18:30", recurrence: "none" }],
   lessons: [],
   lessonNotes: [],
+  workoutTemplates: [
+    { id: "w1", title: "Силовая тренировка", weekDays: [1, 4], exercises: [{ id: "we1", title: "Приседания", sets: 3, reps: 10, weight: null }, { id: "we2", title: "Тяга верхнего блока", sets: 3, reps: 12, weight: null }] },
+    { id: "w2", title: "Кардио и мобилити", weekDays: [6], exercises: [{ id: "we3", title: "Кардио", sets: 1, reps: 30, weight: null }] }
+  ],
+  workoutSessions: [],
   habits: [
     { id: "h1", title: "Тренировка", color: "#e8749b", logs: {} },
     { id: "h2", title: "Вода", color: "#9ccfc3", logs: {} }
@@ -180,7 +193,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const stored = JSON.parse(saved) as Partial<PlannerData>;
-      setData({ ...seed, ...stored, lessons: stored.lessons || [], lessonNotes: stored.lessonNotes || [] });
+      setData({ ...seed, ...stored, lessons: stored.lessons || [], lessonNotes: stored.lessonNotes || [], workoutTemplates: stored.workoutTemplates || seed.workoutTemplates, workoutSessions: stored.workoutSessions || [] });
     }
     setImage(images[Math.floor(Math.random() * images.length)]);
     setPhrase(sidebarPhrases[Math.floor(Math.random() * sidebarPhrases.length)]);
@@ -265,6 +278,7 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
         {section === "deadlines" && <DeadlinesPage data={data} now={now} setData={setData} />}
         {section === "events" && <EventsPage data={data} setData={setData} />}
         {section === "lessons" && <LessonsPage data={data} setData={setData} />}
+        {section === "workouts" && <WorkoutsPage data={data} setData={setData} />}
         {section === "calendar" && <CalendarPage data={data} />}
         {section === "plans" && <PlansPage data={data} setData={setData} />}
         {section === "habits" && <HabitsPage data={data} setData={setData} />}
@@ -482,6 +496,46 @@ function LessonsPage({ data, setData }: { data: PlannerData; setData: React.Disp
     const dayLabel = new Intl.DateTimeFormat("ru-RU", { weekday: "long", day: "numeric", month: "long" }).format(new Date(`${date}T12:00:00`));
     return <section className={`lesson-day ${date === today ? "current-day" : ""}`} key={date}><header><span>{dayLabel}</span>{date === today && <em>сегодня</em>}</header>{dayLessons.length ? dayLessons.map((lesson) => <article className="lesson-row" id={`lesson-${lesson.id}`} key={lesson.id}><time>{lesson.time}{lesson.endTime ? `–${lesson.endTime}` : ""}</time><div><h3>{lesson.title}</h3>{lesson.subgroup && <small>{lesson.subgroup}</small>}{lesson.location && <p>{lesson.location}</p>}{lesson.educator && <small>{lesson.educator}</small>}<LessonNoteEditor lesson={lesson} note={data.lessonNotes.find((note) => note.lessonId === lesson.id)} setData={setData} /></div></article>) : <p className="lesson-empty">Пар нет</p>}</section>;
   })}</div></ListPage>;
+}
+
+function WorkoutsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  const [weekStart, setWeekStart] = useState(() => mondayFor(today));
+  const [selectedDate, setSelectedDate] = useState(today);
+  const days = Array.from({ length: 7 }, (_, index) => shiftDate(weekStart, index));
+  const selectedSession = data.workoutSessions.find((session) => session.date === selectedDate);
+  const attendedThisWeek = data.workoutSessions.filter((session) => session.attended && days.includes(session.date)).length;
+  const plannedThisWeek = days.filter((date) => data.workoutSessions.some((session) => session.date === date) || data.workoutTemplates.some((template) => template.weekDays.includes(new Date(`${date}T12:00:00`).getDay()))).length;
+
+  const startSession = (date: string, workoutId: string) => {
+    const template = data.workoutTemplates.find((item) => item.id === workoutId);
+    if (!template) return;
+    setData((current) => {
+      const existing = current.workoutSessions.find((session) => session.date === date);
+      const exercises = template.exercises.map((exercise) => ({ ...exercise, id: uid("exercise") }));
+      return { ...current, workoutSessions: existing ? current.workoutSessions.map((session) => session.id === existing.id ? { ...session, workoutId, exercises } : session) : [...current.workoutSessions, { id: uid("workout"), date, workoutId, attended: false, exercises }] };
+    });
+    setSelectedDate(date);
+  };
+
+  return <ListPage title="Тренировки"><section className="workout-template-panel"><div><h2>Мои тренировки</h2><p>За эту неделю: {attendedThisWeek} из {plannedThisWeek} тренировок отмечено. Выбери дни недели — тренировка появится в плане автоматически.</p></div><button className="secondary" onClick={() => setData((current) => ({ ...current, workoutTemplates: [...current.workoutTemplates, { id: uid("workout-type"), title: "Новая тренировка", weekDays: [], exercises: [] }] }))}>+ тренировка</button><div className="workout-template-list">{data.workoutTemplates.map((template) => <WorkoutTemplateRow key={template.id} template={template} setData={setData} />)}</div></section><div className="week-switcher"><button aria-label="Предыдущая неделя" onClick={() => setWeekStart((current) => shiftDate(current, -7))}><ChevronLeft /></button><h2>{dateRu(days[0])} — {dateRu(days[6])}</h2><button aria-label="Следующая неделя" onClick={() => setWeekStart((current) => shiftDate(current, 7))}><ChevronRight /></button></div><div className="workout-week">{days.map((date) => <WorkoutDayCard key={date} date={date} templates={data.workoutTemplates} session={data.workoutSessions.find((item) => item.date === date)} selected={selectedDate === date} onSelect={() => setSelectedDate(date)} onStart={startSession} setData={setData} />)}</div><WorkoutJournal session={selectedSession} template={data.workoutTemplates.find((item) => item.id === selectedSession?.workoutId)} setData={setData} /></ListPage>;
+}
+
+function WorkoutTemplateRow({ template, setData }: { template: WorkoutTemplate; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  const update = (next: Partial<WorkoutTemplate>) => setData((current) => ({ ...current, workoutTemplates: current.workoutTemplates.map((item) => item.id === template.id ? { ...item, ...next } : item) }));
+  return <div className="workout-template-row"><input value={template.title} aria-label="Название тренировки" onChange={(event) => update({ title: event.target.value })} /><div className="weekday-picker">{weekDays.map((day) => <button type="button" key={day.value} className={template.weekDays.includes(day.value) ? "active" : ""} onClick={() => update({ weekDays: toggleDay(template.weekDays, day.value) })}>{day.label}</button>)}</div><button aria-label="Удалить тренировку" onClick={() => setData((current) => ({ ...current, workoutTemplates: current.workoutTemplates.filter((item) => item.id !== template.id), workoutSessions: current.workoutSessions.filter((session) => session.workoutId !== template.id) }))}><Trash2 size={17} /></button></div>;
+}
+
+function WorkoutDayCard({ date, templates, session, selected, onSelect, onStart, setData }: { date: string; templates: WorkoutTemplate[]; session?: WorkoutSession; selected: boolean; onSelect: () => void; onStart: (date: string, workoutId: string) => void; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  const dayNumber = new Date(`${date}T12:00:00`).getDay();
+  const planned = templates.find((template) => template.weekDays.includes(dayNumber));
+  const workout = templates.find((template) => template.id === session?.workoutId) || planned;
+  return <article className={`workout-day ${selected ? "selected-workout-day" : ""} ${session?.attended ? "attended" : ""}`} onClick={onSelect}><header><span>{new Intl.DateTimeFormat("ru-RU", { weekday: "short" }).format(new Date(`${date}T12:00:00`))}</span><b>{new Date(`${date}T12:00:00`).getDate()}</b></header>{workout ? <><select value={workout.id} onClick={(event) => event.stopPropagation()} onChange={(event) => onStart(date, event.target.value)}>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select><button className="workout-open" onClick={(event) => { event.stopPropagation(); onStart(date, workout.id); }}>{session?.attended ? "Тренировка записана" : "Открыть журнал"}</button>{session && <button className="attendance-toggle" onClick={(event) => { event.stopPropagation(); setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, attended: !item.attended } : item) })); }}>{session.attended ? "✓ Была" : "Отметить, что была"}</button>}</> : <select value="" onClick={(event) => event.stopPropagation()} onChange={(event) => onStart(date, event.target.value)}><option value="" disabled>Выбери тренировку</option>{templates.map((template) => <option key={template.id} value={template.id}>{template.title}</option>)}</select>}</article>;
+}
+
+function WorkoutJournal({ session, template, setData }: { session?: WorkoutSession; template?: WorkoutTemplate; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
+  if (!session) return <section className="workout-journal empty-workout-journal"><Dumbbell size={24} /><div><h2>Журнал тренировки</h2><p>Выбери тренировку в неделе, чтобы записать упражнения.</p></div></section>;
+  const updateExercise = (id: string, next: Partial<WorkoutExercise>) => setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, exercises: item.exercises.map((exercise) => exercise.id === id ? { ...exercise, ...next } : exercise) } : item) }));
+  return <section className="workout-journal"><div className="workout-journal-head"><div><span>{dateRu(session.date)}</span><h2>{template?.title || "Тренировка"}</h2></div><button className={session.attended ? "secondary" : "primary"} onClick={() => setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, attended: !item.attended } : item) }))}>{session.attended ? "✓ Тренировка выполнена" : "Отметить выполненной"}</button></div><div className="exercise-table"><div className="exercise-labels"><span>Упражнение</span><span>Подходы</span><span>Повторы</span><span>Вес, кг</span></div>{session.exercises.map((exercise) => <div className="exercise-row" key={exercise.id}><input value={exercise.title} aria-label="Упражнение" onChange={(event) => updateExercise(exercise.id, { title: event.target.value })} /><input type="number" min="0" value={exercise.sets} aria-label="Подходы" onChange={(event) => updateExercise(exercise.id, { sets: Number(event.target.value) })} /><input type="number" min="0" value={exercise.reps} aria-label="Повторы" onChange={(event) => updateExercise(exercise.id, { reps: Number(event.target.value) })} /><input type="number" min="0" step="0.5" value={exercise.weight ?? ""} placeholder="—" aria-label="Вес" onChange={(event) => updateExercise(exercise.id, { weight: event.target.value === "" ? null : Number(event.target.value) })} /><button aria-label="Удалить упражнение" onClick={() => setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, exercises: item.exercises.filter((exerciseItem) => exerciseItem.id !== exercise.id) } : item) }))}><Trash2 size={17} /></button></div>)}</div><button className="secondary add-exercise" onClick={() => setData((current) => ({ ...current, workoutSessions: current.workoutSessions.map((item) => item.id === session.id ? { ...item, exercises: [...item.exercises, { id: uid("exercise"), title: "Новое упражнение", sets: 0, reps: 0, weight: null }] } : item) }))}>+ упражнение</button></section>;
 }
 
 function LessonNoteEditor({ lesson, note, setData }: { lesson: LessonItem; note?: LessonNote; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {

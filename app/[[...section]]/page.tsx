@@ -4,6 +4,7 @@ const allowed = new Set([
   "today",
   "calendar",
   "lessons",
+  "workouts",
   "events",
   "tasks",
   "plans",

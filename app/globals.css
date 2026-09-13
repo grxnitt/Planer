@@ -1280,6 +1280,186 @@ button.calendar-cell {
   padding: 14px 16px;
 }
 
+.workout-template-panel,
+.workout-journal {
+  margin-bottom: 20px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: var(--shadow);
+}
+
+.workout-template-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+.workout-template-panel h2,
+.workout-journal h2 {
+  margin: 0;
+  font-family: var(--font-cormorant), serif;
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.workout-template-panel p,
+.workout-journal p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.workout-template-list {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 9px;
+}
+
+.workout-template-row {
+  display: grid;
+  grid-template-columns: minmax(180px, .7fr) minmax(230px, 1fr) 34px;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.workout-template-row input,
+.exercise-row input,
+.workout-day select {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 9px 10px;
+  color: var(--text);
+  background: var(--surface);
+}
+
+.workout-template-row > button,
+.exercise-row > button {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.workout-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.workout-day {
+  display: grid;
+  min-width: 150px;
+  min-height: 168px;
+  align-content: start;
+  gap: 9px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.workout-day.selected-workout-day {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.workout-day.attended {
+  background: color-mix(in srgb, var(--accent-soft) 64%, var(--surface));
+}
+
+.workout-day header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.workout-day header b {
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.workout-day select {
+  width: 100%;
+  font-size: 13px;
+}
+
+.workout-open,
+.attendance-toggle {
+  width: 100%;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.attendance-toggle {
+  color: var(--muted);
+}
+
+.workout-journal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.workout-journal-head span {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.exercise-table {
+  display: grid;
+  gap: 8px;
+}
+
+.exercise-labels,
+.exercise-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) 100px 100px 100px 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.exercise-labels {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.add-exercise {
+  margin-top: 12px;
+}
+
+.empty-workout-journal {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.empty-workout-journal svg {
+  color: var(--accent);
+}
+
 @media (max-width: 680px) {
   .week-switcher {
     grid-template-columns: 40px minmax(0, 1fr) 40px;
@@ -1311,6 +1491,29 @@ button.calendar-cell {
 
   .lesson-note-form button {
     flex: 1;
+  }
+
+  .workout-template-panel,
+  .workout-template-row,
+  .workout-journal-head {
+    grid-template-columns: 1fr;
+  }
+
+  .workout-template-panel > .secondary,
+  .workout-journal-head > button {
+    justify-self: start;
+  }
+
+  .workout-template-row > button {
+    justify-self: start;
+  }
+
+  .exercise-labels {
+    display: none;
+  }
+
+  .exercise-row {
+    grid-template-columns: minmax(0, 1fr) repeat(3, 70px) 34px;
   }
 }
 
