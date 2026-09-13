@@ -459,7 +459,25 @@ function HeartGrid({ logs, color, onToggle, readOnly }: { logs: Record<string, b
 
 function FinancePage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
   const [category, setCategory] = useState("");
-  return <ListPage title="Финансы"><FinanceEntryForm data={data} setData={setData} /><div className="category-manager"><input placeholder="Новая категория" value={category} onChange={(e) => setCategory(e.target.value)} /><button onClick={() => { if (category.trim()) setData((d) => ({ ...d, financeCategories: [...new Set([...d.financeCategories, category.trim()])] })); setCategory(""); }}>Добавить категорию</button></div>{data.transactions.map((item) => <FinanceRow key={item.id} item={item} categories={data.financeCategories} setData={setData} />)}</ListPage>;
+  return <ListPage title="Финансы"><FinanceEntryForm data={data} setData={setData} /><FinanceCharts transactions={data.transactions} /><div className="category-manager"><input placeholder="Новая категория" value={category} onChange={(e) => setCategory(e.target.value)} /><button onClick={() => { if (category.trim()) setData((d) => ({ ...d, financeCategories: [...new Set([...d.financeCategories, category.trim()])] })); setCategory(""); }}>Добавить категорию</button></div>{data.transactions.map((item) => <FinanceRow key={item.id} item={item} categories={data.financeCategories} setData={setData} />)}</ListPage>;
+}
+
+function FinanceCharts({ transactions }: { transactions: Transaction[] }) {
+  const expenses = transactions.filter((item) => item.type === "expense");
+  const income = transactions.filter((item) => item.type === "income");
+  const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
+  const totalIncome = income.reduce((sum, item) => sum + item.amount, 0);
+  const balance = totalIncome - totalExpenses;
+  const categories = financeByCategory(expenses).slice(0, 5);
+  const daily = financeByRecentDays(expenses, 7);
+  const maxCategory = Math.max(...categories.map((item) => item.amount), 1);
+  const maxDaily = Math.max(...daily.map((item) => item.amount), 1);
+
+  return <section className="finance-charts" aria-label="Графики расходов">
+    <div className="chart-card category-chart"><h3>Расходы по категориям</h3>{categories.length ? categories.map((item) => <div className="bar-row" key={item.category}><div><span>{item.category}</span><b>{money(item.amount)}</b></div><i style={{ width: `${Math.max((item.amount / maxCategory) * 100, 8)}%` }} /></div>) : <Empty text="Расходов пока нет" />}</div>
+    <div className="chart-card balance-chart"><h3>Доходы и расходы</h3><div className="balance-grid"><div><span>Доходы</span><b>+{money(totalIncome)}</b></div><div><span>Расходы</span><b>-{money(totalExpenses)}</b></div><div className={balance >= 0 ? "positive" : "negative"}><span>Баланс</span><b>{balance >= 0 ? "+" : "-"}{money(Math.abs(balance))}</b></div></div></div>
+    <div className="chart-card days-chart"><h3>Последние 7 дней</h3><div className="mini-bars">{daily.map((item) => <div key={item.date}><i style={{ height: `${Math.max((item.amount / maxDaily) * 100, item.amount ? 12 : 4)}%` }} /><span>{new Date(`${item.date}T12:00:00`).toLocaleDateString("ru-RU", { day: "numeric", month: "short" })}</span></div>)}</div></div>
+  </section>;
 }
 
 function FinanceEntryForm({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -606,6 +624,24 @@ function normalizeFinanceCategory(type: Transaction["type"], category: string) {
 
 function financeCategoryLabel(item: Transaction) {
   return normalizeFinanceCategory(item.type, item.category);
+}
+
+function financeByCategory(transactions: Transaction[]) {
+  const totals = new Map<string, number>();
+  transactions.forEach((item) => {
+    const category = financeCategoryLabel(item);
+    totals.set(category, (totals.get(category) || 0) + item.amount);
+  });
+
+  return Array.from(totals, ([category, amount]) => ({ category, amount })).sort((a, b) => b.amount - a.amount);
+}
+
+function financeByRecentDays(transactions: Transaction[], days: number) {
+  return Array.from({ length: days }, (_, index) => {
+    const date = addDays(index - days + 1);
+    const amount = transactions.filter((item) => item.date === date).reduce((sum, item) => sum + item.amount, 0);
+    return { date, amount };
+  });
 }
 
 function recurrenceRu(value: Recurrence, repeatDays?: WeekdaySchedule) {
