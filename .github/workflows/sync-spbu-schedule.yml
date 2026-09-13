@@ -1,0 +1,19 @@
+name: Sync SPbU timetable
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Request timetable sync
+        env:
+          PLANER_URL: ${{ secrets.PLANER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${PLANER_URL}/api/schedule/sync"

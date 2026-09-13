@@ -8,6 +8,7 @@ import {
   plannerSearch,
   statusForDeadline
 } from "../lib/planner-helpers";
+import { parseSpbuWeek } from "../lib/spbu-schedule";
 
 describe("planner helpers", () => {
   it("changes greeting by local device hour", () => {
@@ -82,5 +83,27 @@ describe("planner helpers", () => {
     });
 
     expect(results.map((result) => result.type)).toEqual(["Задача", "Дедлайн", "Событие", "План"]);
+  });
+
+  it("parses an SPbU timetable lesson into a dated calendar event", () => {
+    const lessons = parseSpbuWeek(`
+      <div id="accordion"><div class="panel"><ul>
+        <li class="common-list-item row">
+          <div class="studyevent-datetime"><span class="moreinfo">13:00–14:30</span></div>
+          <div class="studyevent-subject"><span class="moreinfo">Административное право, лекция</span></div>
+          <div class="studyevent-locations"><span class="hoverable">22-я линия В.О., д. 7</span></div>
+          <div class="studyevent-educators"><a>Сосновский С. А.</a></div>
+        </li>
+      </ul></div></div>
+    `, new Date("2026-09-14T00:00:00Z"), "https://example.test");
+
+    expect(lessons).toMatchObject([{
+      date: "2026-09-14",
+      startTime: "13:00",
+      endTime: "14:30",
+      title: "Административное право, лекция",
+      location: "22-я линия В.О., д. 7",
+      educator: "Сосновский С. А."
+    }]);
   });
 });

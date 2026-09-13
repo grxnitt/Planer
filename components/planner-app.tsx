@@ -55,7 +55,7 @@ type Section =
 type Recurrence = "none" | "daily" | "weekly" | "monthly";
 type Task = { id: string; title: string; date: string; time?: string; completed: boolean; category: string; goalId?: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
 type Deadline = { id: string; title: string; date: string; time?: string; category: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
-type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule };
+type EventItem = { id: string; title: string; date: string; time: string; recurrence: Recurrence; repeatDays?: WeekdaySchedule; source?: "spbu"; endTime?: string | null; location?: string | null; educator?: string | null };
 type Habit = { id: string; title: string; color: string; logs: Record<string, boolean> };
 type Medication = { id: string; title: string; dose: string; time: string; period: MedicationPeriod; recurrence: Recurrence; repeatDays?: WeekdaySchedule; logs: Record<string, MedicationLogStatus> };
 type Transaction = { id: string; amount: number; type: "income" | "expense"; category: string; date: string; note?: string };
@@ -72,6 +72,10 @@ type PlannerData = {
   financeCategories: string[];
   plans: Record<string, PlanDay>;
   goals: Goal[];
+};
+type SpbuScheduleResponse = {
+  lessons: { externalId: string; date: string; startTime: string; endTime: string | null; title: string; location: string | null; educator: string | null }[];
+  updatedAt: string | null;
 };
 
 const storageKey = "soft-planner-recovered-v2";
@@ -175,6 +179,31 @@ export default function PlannerApp({ initialSection }: { initialSection: string 
     localStorage.setItem(storageKey, JSON.stringify(data));
     document.documentElement.dataset.theme = data.theme;
   }, [data, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    fetch("/api/schedule", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() as Promise<SpbuScheduleResponse> : null)
+      .then((schedule) => {
+        if (!schedule) return;
+        const imported: EventItem[] = schedule.lessons.map((lesson) => ({
+          id: `spbu-${lesson.externalId}`,
+          title: lesson.title,
+          date: lesson.date,
+          time: lesson.startTime,
+          endTime: lesson.endTime,
+          location: lesson.location,
+          educator: lesson.educator,
+          recurrence: "none",
+          source: "spbu"
+        }));
+        setData((current) => ({
+          ...current,
+          events: [...current.events.filter((event) => event.source !== "spbu"), ...imported].sort((a, b) => `${a.date}${a.time}`.localeCompare(`${b.date}${b.time}`))
+        }));
+      })
+      .catch(() => undefined);
+  }, [hydrated]);
 
   const results = useMemo(() => plannerSearch(query, { ...data, plans: Object.values(data.plans) }), [data, query]);
 
@@ -395,7 +424,8 @@ function DeadlineRow({ deadline, now, setData }: { deadline: Deadline; now: Date
 }
 
 function EventsPage({ data, setData }: { data: PlannerData; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
-  return <ListPage title="События">{data.events.map((event) => <EventRow key={event.id} event={event} setData={setData} />)}</ListPage>;
+  const spbuCount = data.events.filter((event) => event.source === "spbu").length;
+  return <ListPage title="События"><section className="schedule-notice"><div><span>Расписание СПбГУ</span><p>{spbuCount ? `Загружено занятий: ${spbuCount}. Сверяем расписание каждый час.` : "Занятия появятся после первой автоматической синхронизации."}</p></div><button className="secondary" onClick={() => window.location.reload()}>Проверить</button></section>{data.events.map((event) => <EventRow key={event.id} event={event} setData={setData} />)}</ListPage>;
 }
 
 function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatch<React.SetStateAction<PlannerData>> }) {
@@ -406,6 +436,7 @@ function EventRow({ event, setData }: { event: EventItem; setData: React.Dispatc
     setEditing(false);
   };
 
+  if (event.source === "spbu") return <div className="editable-row full-edit-row imported-event"><div><span className="source-label">СПбГУ</span><h3>{event.title}</h3><p>{dateRu(event.date)} · {event.time}{event.endTime ? `–${event.endTime}` : ""}{event.location ? ` · ${event.location}` : ""}{event.educator ? ` · ${event.educator}` : ""}</p></div></div>;
   return <div className="editable-row full-edit-row"><div>{editing ? <EditGrid><label>Название<input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} /></label><label>День<input type="date" value={draft.date} onChange={(e) => setDraft({ ...draft, date: e.target.value })} /></label><label>Время<input type="time" value={draft.time} onChange={(e) => setDraft({ ...draft, time: e.target.value })} /></label><RecurrenceFields draft={draft} setDraft={setDraft} /></EditGrid> : <><h3>{event.title}</h3><p>{dateRu(event.date)} · {event.time} · {recurrenceRu(event.recurrence, event.repeatDays)}</p></>}</div>{editing ? <button aria-label="Сохранить" onClick={save}><Check /></button> : <button aria-label="Редактировать" onClick={() => { setDraft(event); setEditing(true); }}><Edit3 /></button>}<button aria-label="Удалить" onClick={() => setData((d) => ({ ...d, events: d.events.filter((x) => x.id !== event.id) }))}><Trash2 /></button></div>;
 }
 
