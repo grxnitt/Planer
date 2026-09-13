@@ -89,8 +89,11 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
       const educator = clean($(row).find(".studyevent-educators a").map((_, anchor) => clean($(anchor).text())).get().join(", ")) || null;
       const subgroup = clean($(row).find(".studyevent-subject .glyphicon-transfer").parent().text()) || null;
       const dateValue = localDate(date);
+      const identity = subgroup
+        ? [SPBU_GROUP_ID, dateValue, startRaw, title, subgroup, location || "", educator || ""]
+        : [SPBU_GROUP_ID, dateValue, startRaw, title, location || "", educator || ""];
       const externalId = createHash("sha256")
-        .update([SPBU_GROUP_ID, dateValue, startRaw, title, subgroup || "", location || "", educator || ""].join("|"))
+        .update(identity.join("|"))
         .digest("hex");
 
       const lesson = {

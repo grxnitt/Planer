@@ -54,13 +54,18 @@ export async function upcomingSpbuLessons(): Promise<{ lessons: StoredLesson[]; 
         title, location, educator, subgroup, source_url as "sourceUrl", updated_at::text as "updatedAt"
       from schedule_lessons
       where group_id = ${"460105"} and cancelled = false and lesson_date >= current_date - 1
-      order by lesson_date asc, start_time asc
+      order by lesson_date asc, start_time asc, updated_at desc
       limit 250
     `;
     const [last] = await sql<{ updatedAt: string | null }[]>`
       select max(updated_at)::text as "updatedAt" from schedule_lessons where group_id = ${"460105"}
     `;
-    return { lessons: lessons.filter(isTrackedSpbuLesson), updatedAt: last?.updatedAt || null };
+    const unique = new Map<string, StoredLesson>();
+    for (const lesson of lessons) {
+      const key = [lesson.date, lesson.startTime, lesson.endTime || "", lesson.title, lesson.location || "", lesson.educator || "", lesson.subgroup || ""].join("|");
+      if (!unique.has(key)) unique.set(key, lesson);
+    }
+    return { lessons: [...unique.values()].filter(isTrackedSpbuLesson), updatedAt: last?.updatedAt || null };
   } finally {
     await sql.end({ timeout: 5 });
   }
