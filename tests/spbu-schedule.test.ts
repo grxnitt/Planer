@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { isTrackedSpbuLesson } from "../lib/spbu-schedule";
 
 describe("SPbU timetable filtering", () => {
+  it("keeps regular classes", () => {
+    expect(isTrackedSpbuLesson({ title: "Административное право, лекция", educator: "Сосновский С. А." })).toBe(true);
+    expect(isTrackedSpbuLesson({ title: "Уголовное право (общая часть), лекция", educator: "Пряжина Н. И." })).toBe(true);
+  });
+
   it("keeps only the selected electives", () => {
     expect(isTrackedSpbuLesson({ title: "Электив. Правовое регулирование отношений в сети Интернет, лекция", educator: "Архипов В. В." })).toBe(true);
     expect(isTrackedSpbuLesson({ title: "Электив. Журналистские расследования, практическое занятие", educator: "Иванов И. И." })).toBe(true);

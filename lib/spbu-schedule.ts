@@ -29,17 +29,24 @@ function comparable(value: string | null | undefined) {
     .trim();
 }
 
-/** Only lessons selected by the student are shown in the planner. */
+/**
+ * Keep every regular class. Restrict only the parallel elective and English
+ * streams to the student's own choices.
+ */
 export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator">) {
   const title = comparable(lesson.title);
   const educator = comparable(lesson.educator);
-  const selectedElective = title.includes("электив") && ELECTIVE_TITLES.some((elective) => title.includes(elective));
+  const isElective = title.includes("электив");
+  const isEnglish = title.includes("английский язык");
+  const selectedElective = ELECTIVE_TITLES.some((elective) => title.includes(elective));
   const selectedEnglish = title.includes("траектория 3")
-    && title.includes("английский язык")
+    && isEnglish
     && /b1\s*-\s*b2/.test(title)
     && educator.includes("удинская");
 
-  return selectedElective || selectedEnglish;
+  if (isElective) return selectedElective;
+  if (isEnglish) return selectedEnglish;
+  return true;
 }
 
 function clean(value: string | undefined | null) {
