@@ -33,14 +33,15 @@ function comparable(value: string | null | undefined) {
 }
 
 /**
- * Keep every regular class. Restrict only the parallel elective and English
- * streams to the student's own choices.
+ * Keep core classes, but never import a parallel stream unless it is the
+ * student's selected elective or exact English subgroup.
  */
 export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator" | "subgroup">) {
   const title = comparable(lesson.title);
   const educator = comparable(lesson.educator);
   const subgroup = comparable(lesson.subgroup);
   const isElective = title.includes("электив") || title.includes("elective");
+  const isTrajectory = title.includes("траектория") || title.includes("trajectory");
   const isEnglish = title.includes("английский") || title.includes("english");
   const selectedElective = ELECTIVE_TITLES.some((elective) => title.includes(elective));
   const selectedEnglish = title.includes("траектория 3")
@@ -50,7 +51,7 @@ export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator
     && /(?:подгруппа|cohort)\s*5\b/.test(subgroup);
 
   if (isElective) return selectedElective;
-  if (isEnglish) return selectedEnglish;
+  if (isTrajectory || isEnglish) return selectedEnglish;
   return true;
 }
 

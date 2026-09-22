@@ -20,6 +20,7 @@ describe("SPbU timetable filtering", () => {
     expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 2" })).toBe(false);
     expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Другой преподаватель", subgroup: "Подгруппа 5" })).toBe(false);
     expect(isTrackedSpbuLesson({ title: "Траектория 2 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 5" })).toBe(false);
-    expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 2" })).toBe(false);
+    expect(isTrackedSpbuLesson({ title: "Траектория 1 (РКИ). Русский язык как иностранный, практическое занятие", educator: "Шарихин Е. Ю.", subgroup: "Подгруппа 1" })).toBe(false);
+    expect(isTrackedSpbuLesson({ title: "Trajectory 4. German language", educator: "Другой преподаватель", subgroup: "Cohort 1" })).toBe(false);
   });
 });
