@@ -18,7 +18,9 @@ export type SpbuLesson = {
 
 const ELECTIVE_TITLES = [
   "правовое регулирование отношений в сети интернет",
-  "журналистские расследования"
+  "журналистские расследования",
+  "legal regulation of relations in the internet",
+  "journalistic investigations"
 ];
 
 function comparable(value: string | null | undefined) {
@@ -39,7 +41,7 @@ export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator
   const educator = comparable(lesson.educator);
   const subgroup = comparable(lesson.subgroup);
   const isElective = title.includes("электив") || title.includes("elective");
-  const isEnglish = title.includes("английский язык") || title.includes("english");
+  const isEnglish = title.includes("английский") || title.includes("english");
   const selectedElective = ELECTIVE_TITLES.some((elective) => title.includes(elective));
   const selectedEnglish = title.includes("траектория 3")
     && isEnglish

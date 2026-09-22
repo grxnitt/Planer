@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import { isTrackedSpbuLesson, type SpbuLesson } from "@/lib/spbu-schedule";
+import { isTrackedSpbuLesson, mondayUtc, type SpbuLesson } from "@/lib/spbu-schedule";
 
 export type StoredLesson = SpbuLesson & { updatedAt: string };
 
@@ -12,11 +12,24 @@ function database() {
 export async function saveSpbuLessons(lessons: SpbuLesson[]) {
   const sql = database();
   const now = new Date().toISOString();
+  const windowStart = mondayUtc();
+  const windowEnd = new Date(windowStart);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 42);
+  const formatDate = (date: Date) => date.toISOString().slice(0, 10);
   try {
     // Keeps deployed projects compatible when this field is introduced after
     // the initial timetable table has already been created.
     await sql`alter table schedule_lessons add column if not exists subgroup text`;
     await sql.begin(async (transaction) => {
+      // SPbU may move, cancel, or change a lesson.  Rebuild the current sync
+      // window instead of only appending rows, otherwise old versions stay in
+      // the planner alongside the new timetable.
+      await transaction`
+        delete from schedule_lessons
+        where group_id = ${"460105"}
+          and lesson_date >= ${formatDate(windowStart)}
+          and lesson_date < ${formatDate(windowEnd)}
+      `;
       for (const lesson of lessons) {
         await transaction`
           insert into schedule_lessons (
@@ -53,7 +66,10 @@ export async function upcomingSpbuLessons(): Promise<{ lessons: StoredLesson[]; 
         external_id as "externalId", lesson_date::text as date, start_time::text as "startTime", end_time::text as "endTime",
         title, location, educator, subgroup, source_url as "sourceUrl", updated_at::text as "updatedAt"
       from schedule_lessons
-      where group_id = ${"460105"} and cancelled = false and lesson_date >= current_date - 1
+      where group_id = ${"460105"}
+        and cancelled = false
+        and lesson_date >= current_date - 1
+        and lesson_date < current_date + 42
       order by lesson_date asc, start_time asc, updated_at desc
       limit 250
     `;

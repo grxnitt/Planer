@@ -10,6 +10,7 @@ describe("SPbU timetable filtering", () => {
   it("keeps only the selected electives", () => {
     expect(isTrackedSpbuLesson({ title: "Электив. Правовое регулирование отношений в сети Интернет, лекция", educator: "Архипов В. В.", subgroup: null })).toBe(true);
     expect(isTrackedSpbuLesson({ title: "Электив. Журналистские расследования, практическое занятие", educator: "Иванов И. И.", subgroup: null })).toBe(true);
+    expect(isTrackedSpbuLesson({ title: "Elective. Journalistic investigations", educator: "Ivanov I. I.", subgroup: null })).toBe(true);
     expect(isTrackedSpbuLesson({ title: "Электив. Современное искусство", educator: "Иванов И. И.", subgroup: null })).toBe(false);
   });
 
@@ -19,5 +20,6 @@ describe("SPbU timetable filtering", () => {
     expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 2" })).toBe(false);
     expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Другой преподаватель", subgroup: "Подгруппа 5" })).toBe(false);
     expect(isTrackedSpbuLesson({ title: "Траектория 2 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 5" })).toBe(false);
+    expect(isTrackedSpbuLesson({ title: "Траектория 3 (В1 – В2). Английский язык, практическое занятие", educator: "Удинская А. Г.", subgroup: "Подгруппа 2" })).toBe(false);
   });
 });
