@@ -55,6 +55,47 @@ export function isTrackedSpbuLesson(lesson: Pick<SpbuLesson, "title" | "educator
   return true;
 }
 
+const SELECTED_LEGAL_ELECTIVE = "правовое регулирование отношений в сети интернет";
+
+function isTuesday(date: string) {
+  return new Date(`${date}T00:00:00Z`).getUTCDay() === 2;
+}
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return localDate(value);
+}
+
+function createExternalId(lesson: Omit<SpbuLesson, "externalId">) {
+  const identity = lesson.subgroup
+    ? [SPBU_GROUP_ID, lesson.date, lesson.startTime, lesson.title, lesson.subgroup, lesson.location || "", lesson.educator || ""]
+    : [SPBU_GROUP_ID, lesson.date, lesson.startTime, lesson.title, lesson.location || "", lesson.educator || ""];
+  return createHash("sha256").update(identity.join("|")).digest("hex");
+}
+
+/**
+ * The university group feed also contains a seminar the student does not
+ * attend in the Tuesday 14:45 slot. Her selected legal elective belongs in
+ * that slot, so keep this personal correction stable across every sync.
+ */
+export function applyPersonalScheduleOverrides(lessons: SpbuLesson[]) {
+  const selectedLegal = lessons.filter((lesson) => comparable(lesson.title).includes(SELECTED_LEGAL_ELECTIVE));
+  const withoutPlaceholder = lessons.filter((lesson) => {
+    const isRudokvasSeminar = comparable(lesson.title).includes("гражданское право")
+      && comparable(lesson.title).includes("семинар")
+      && comparable(lesson.educator).includes("рудоквас")
+      && isTuesday(lesson.date)
+      && lesson.startTime === "14:45";
+    return !isRudokvasSeminar && !comparable(lesson.title).includes(SELECTED_LEGAL_ELECTIVE);
+  });
+  const movedElectives = selectedLegal.map((lesson) => {
+    const moved = { ...lesson, date: shiftDate(lesson.date, -2) };
+    return { ...moved, externalId: createExternalId(moved) };
+  });
+  return [...withoutPlaceholder, ...movedElectives];
+}
+
 function clean(value: string | undefined | null) {
   return (value || "").replace(/\s+/g, " ").trim();
 }
@@ -92,15 +133,7 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
       const educator = clean($(row).find(".studyevent-educators a").map((_, anchor) => clean($(anchor).text())).get().join(", ")) || null;
       const subgroup = clean($(row).find(".studyevent-subject .glyphicon-transfer").parent().text()) || null;
       const dateValue = localDate(date);
-      const identity = subgroup
-        ? [SPBU_GROUP_ID, dateValue, startRaw, title, subgroup, location || "", educator || ""]
-        : [SPBU_GROUP_ID, dateValue, startRaw, title, location || "", educator || ""];
-      const externalId = createHash("sha256")
-        .update(identity.join("|"))
-        .digest("hex");
-
-      const lesson = {
-        externalId,
+      const lessonWithoutId = {
         date: dateValue,
         startTime: startRaw,
         endTime: /^\d{1,2}:\d{2}$/.test(endRaw || "") ? endRaw : null,
@@ -110,7 +143,7 @@ export function parseSpbuWeek(html: string, weekMonday: Date, sourceUrl: string)
         subgroup,
         sourceUrl
       };
-      lessons.push(lesson);
+      lessons.push({ ...lessonWithoutId, externalId: createExternalId(lessonWithoutId) });
     });
   });
 
@@ -134,5 +167,5 @@ export async function fetchUpcomingSpbuLessons(weeks = 6) {
     week.setUTCDate(week.getUTCDate() + index * 7);
     return fetchSpbuWeek(week);
   }));
-  return groups.flat().filter(isTrackedSpbuLesson);
+  return applyPersonalScheduleOverrides(groups.flat()).filter(isTrackedSpbuLesson);
 }
