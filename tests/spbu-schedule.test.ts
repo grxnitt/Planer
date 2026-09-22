@@ -34,7 +34,10 @@ describe("SPbU timetable filtering", () => {
       ...elective, externalId: "rudokvas", date: "2026-09-22", title: "Гражданское право (общая часть), семинар", educator: "Рудоквас А. Д."
     };
     const result = applyPersonalScheduleOverrides([elective, placeholder]);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ date: "2026-09-22", startTime: "14:45", title: elective.title });
+    expect(result).toHaveLength(2);
+    expect(result).toEqual(expect.arrayContaining([
+      expect.objectContaining({ date: "2026-09-22", startTime: "14:45", title: elective.title }),
+      expect.objectContaining({ date: "2026-09-24", startTime: "14:45", title: elective.title })
+    ]));
   });
 });

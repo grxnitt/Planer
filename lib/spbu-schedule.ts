@@ -76,8 +76,8 @@ function createExternalId(lesson: Omit<SpbuLesson, "externalId">) {
 
 /**
  * The university group feed also contains a seminar the student does not
- * attend in the Tuesday 14:45 slot. Her selected legal elective belongs in
- * that slot, so keep this personal correction stable across every sync.
+ * attend in the Tuesday 14:45 slot. Add the student's legal elective there,
+ * while retaining its regular Thursday entry from the university timetable.
  */
 export function applyPersonalScheduleOverrides(lessons: SpbuLesson[]) {
   const selectedLegal = lessons.filter((lesson) => comparable(lesson.title).includes(SELECTED_LEGAL_ELECTIVE));
@@ -87,7 +87,7 @@ export function applyPersonalScheduleOverrides(lessons: SpbuLesson[]) {
       && comparable(lesson.educator).includes("рудоквас")
       && isTuesday(lesson.date)
       && lesson.startTime === "14:45";
-    return !isRudokvasSeminar && !comparable(lesson.title).includes(SELECTED_LEGAL_ELECTIVE);
+    return !isRudokvasSeminar;
   });
   const movedElectives = selectedLegal.map((lesson) => {
     const moved = { ...lesson, date: shiftDate(lesson.date, -2) };
