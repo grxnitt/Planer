@@ -63,7 +63,9 @@ export async function upcomingSpbuLessons(): Promise<{ lessons: StoredLesson[]; 
   try {
     const lessons = await sql<StoredLesson[]>`
       select
-        external_id as "externalId", lesson_date::text as date, start_time::text as "startTime", end_time::text as "endTime",
+        external_id as "externalId", lesson_date::text as date,
+        to_char(start_time, 'HH24:MI') as "startTime",
+        case when end_time is null then null else to_char(end_time, 'HH24:MI') end as "endTime",
         title, location, educator, subgroup, source_url as "sourceUrl", updated_at::text as "updatedAt"
       from schedule_lessons
       where group_id = ${"460105"}
